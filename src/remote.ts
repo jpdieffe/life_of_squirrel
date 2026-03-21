@@ -10,6 +10,7 @@ import {
   SceneLoader,
   AbstractMesh,
   AnimationGroup,
+  PBRMaterial,
 } from '@babylonjs/core'
 import type { PlayerState, AnimState, CharacterType } from './types'
 
@@ -151,6 +152,19 @@ export class RemotePlayer {
     const incomingChar = state.char ?? 'squirrel'
     if (incomingChar !== this.character) this.setCharacter(incomingChar)
     if (state.anim !== this.currentAnim) this.switchAnim(state.anim)
+
+    // Apply crouch transparency to all meshes on the active model
+    const isCrouching = state.crouch ?? false
+    const activeEntry = this.activeEntries[this.currentAnim]
+    activeEntry?.root.getChildMeshes(false).forEach(m => {
+      m.visibility = isCrouching ? 0.2 : 1.0
+      if (m.material) {
+        m.material.alpha = isCrouching ? 0.2 : 1.0
+        if (m.material instanceof PBRMaterial) {
+          m.material.transparencyMode = isCrouching ? 2 : 0
+        }
+      }
+    })
   }
 
   /** Called every render frame */

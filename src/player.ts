@@ -464,12 +464,13 @@ export class Player {
 
   getState(): PlayerState {
     return {
-      x:    this.position.x,
-      y:    this.position.y,
-      z:    this.position.z,
-      ry:   this.camera.alpha,
-      anim: this.currentAnim,
-      char: this.character,
+      x:      this.position.x,
+      y:      this.position.y,
+      z:      this.position.z,
+      ry:     this.camera.alpha,
+      anim:   this.currentAnim,
+      char:   this.character,
+      crouch: this.isCrouching,
     }
   }
 }

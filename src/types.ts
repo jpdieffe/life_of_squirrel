@@ -55,6 +55,7 @@ export interface PlayerState {
   ry: number  // horizontal rotation (camera alpha)
   anim: AnimState
   char?: CharacterType
+  crouch?: boolean
 }
 
 /** Network message envelope */
