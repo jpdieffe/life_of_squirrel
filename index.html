@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rooftop Runners</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
+
+    /* ── Full-screen canvas ── */
+    #renderCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      touch-action: none;
+      outline: none;
+    }
+
+    /* ── Lobby overlay ── */
+    #lobby {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.78);
+      backdrop-filter: blur(6px);
+      z-index: 20;
+    }
+
+    .card {
+      background: #12122a;
+      border: 1px solid #353570;
+      border-radius: 14px;
+      padding: 2rem 2.2rem;
+      width: min(360px, 90vw);
+      color: #e0e0f0;
+      font-family: system-ui, -apple-system, sans-serif;
+      text-align: center;
+    }
+
+    .card h1 {
+      font-size: 2rem;
+      color: #7eb8ff;
+      letter-spacing: -0.02em;
+    }
+
+    .card .subtitle {
+      color: #7070a0;
+      font-size: 0.85rem;
+      margin: 0.3rem 0 1.5rem;
+    }
+
+    /* buttons */
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 0.7rem 1rem;
+      border: none;
+      border-radius: 9px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: filter 0.15s;
+    }
+    .btn:hover  { filter: brightness(1.15); }
+    .btn:active { filter: brightness(0.9); }
+    .btn-blue  { background: #3a82d6; color: #fff; }
+    .btn-green { background: #3a9e5a; color: #fff; margin-top: 0.5rem; }
+
+    /* room code display */
+    .room-row {
+      margin-top: 0.8rem;
+      font-size: 0.85rem;
+      color: #8080b0;
+    }
+
+    #roomCode {
+      display: inline-block;
+      margin-top: 0.3rem;
+      padding: 0.35rem 0.7rem;
+      background: #08081c;
+      border: 1px solid #353570;
+      border-radius: 6px;
+      font-family: monospace;
+      font-size: 0.9rem;
+      letter-spacing: 0.06em;
+      color: #7eb8ff;
+      word-break: break-all;
+      user-select: all;
+      cursor: text;
+    }
+
+    /* divider */
+    .or {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      margin: 1.1rem 0;
+      color: #404060;
+      font-size: 0.8rem;
+    }
+    .or::before, .or::after {
+      content: '';
+      flex: 1;
+      border-top: 1px solid #282848;
+    }
+
+    /* text input */
+    input[type="text"] {
+      display: block;
+      width: 100%;
+      padding: 0.6rem 0.8rem;
+      background: #08081c;
+      border: 1px solid #353570;
+      border-radius: 9px;
+      color: #e0e0f0;
+      font-size: 0.95rem;
+      font-family: monospace;
+      outline: none;
+      margin-bottom: 0.5rem;
+    }
+    input[type="text"]:focus { border-color: #7eb8ff; }
+    input[type="text"]::placeholder { color: #404060; }
+
+    #status {
+      margin-top: 1rem;
+      min-height: 1.2em;
+      font-size: 0.82rem;
+      color: #8080b0;
+    }
+
+    /* ── HUD (shown once game starts) ── */
+    #hud {
+      position: fixed;
+      bottom: 0.9rem;
+      left: 50%;
+      transform: translateX(-50%);
+      pointer-events: none;
+      color: rgba(255, 255, 255, 0.42);
+      font-family: system-ui, sans-serif;
+      font-size: 0.78rem;
+      white-space: nowrap;
+    }
+
+    /* ── Connection badge ── */
+    #connBadge {
+      display: none;
+      position: fixed;
+      top: 0.8rem;
+      right: 0.9rem;
+      background: rgba(40, 180, 80, 0.85);
+      color: #fff;
+      padding: 0.3rem 0.7rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-family: system-ui, sans-serif;
+      font-weight: 600;
+      pointer-events: none;
+      z-index: 30;
+    }
+    /* ── Character label (top-left) ── */
+    #charLabel {
+      position: fixed;
+      top: 0.8rem;
+      left: 0.9rem;
+      font-family: system-ui, sans-serif;
+      font-size: 0.8rem;
+      font-weight: 700;
+      pointer-events: none;
+      z-index: 30;
+      opacity: 0.85;
+    }
+
+    /* ── Crosshairs ── */
+    .crosshair {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      z-index: 25;
+    }
+    .crosshair.visible { display: block; }
+
+    /* Archer: thin + with center gap */
+    #crosshairArcher {
+      width: 24px;
+      height: 24px;
+    }
+    #crosshairArcher::before,
+    #crosshairArcher::after {
+      content: '';
+      position: absolute;
+      background: rgba(255, 255, 255, 0.88);
+      border-radius: 1px;
+    }
+    /* horizontal bar — two halves with center gap */
+    #crosshairArcher::before {
+      width: 9px; height: 1.5px;
+      top: 50%; left: 0;
+      transform: translateY(-50%);
+      box-shadow: 15px 0 0 rgba(255, 255, 255, 0.88);
+    }
+    /* vertical bar — two halves with center gap */
+    #crosshairArcher::after {
+      width: 1.5px; height: 9px;
+      left: 50%; top: 0;
+      transform: translateX(-50%);
+      box-shadow: 0 15px 0 rgba(255, 255, 255, 0.88);
+    }
+
+    /* Wizard: circle + center dot */
+    #crosshairWizard {
+      width: 26px;
+      height: 26px;
+      border: 1.5px solid rgba(180, 120, 255, 0.90);
+      border-radius: 50%;
+      box-shadow: 0 0 6px rgba(160, 80, 255, 0.5);
+    }
+    #crosshairWizard::after {
+      content: '';
+      position: absolute;
+      width: 4px; height: 4px;
+      background: rgba(200, 150, 255, 0.95);
+      border-radius: 50%;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+    }
+  </style>
+</head>
+<body>
+  <canvas id="renderCanvas" tabindex="0"></canvas>
+
+  <!-- Lobby overlay -->
+  <div id="lobby">
+    <div class="card">
+      <h1>Rooftop Runners</h1>
+      <p class="subtitle">2-player &bull; Browser P2P &bull; No install</p>
+
+      <!-- Host side -->
+      <button class="btn btn-blue" id="hostBtn">Host Game</button>
+      <div class="room-row">
+        Room code:<br>
+        <span id="roomCode" title="Click to select, then copy">—</span>
+      </div>
+
+      <div class="or">or</div>
+
+      <!-- Join side -->
+      <input id="roomInput" type="text" placeholder="Paste friend's room code" autocomplete="off" spellcheck="false" />
+      <button class="btn btn-green" id="joinBtn">Join Game</button>
+
+      <div id="status"></div>
+    </div>
+  </div>
+
+  <!-- Connected badge -->
+  <div id="connBadge">● Connected</div>
+
+  <!-- Character class indicator -->
+  <div id="charLabel"></div>
+
+  <!-- Crosshairs (shown when pointer is locked to the right class) -->
+  <div id="crosshairArcher" class="crosshair"></div>
+  <div id="crosshairWizard" class="crosshair"></div>
+
+  <!-- Controls hint -->
+  <div id="hud">
+    WASD / Arrows &nbsp;·&nbsp; Space / E to jump &nbsp;·&nbsp; Click to capture mouse &nbsp;·&nbsp; Click to attack &nbsp;·&nbsp; Scroll to zoom &nbsp;·&nbsp; ` for characters &nbsp;·&nbsp; Esc to release
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

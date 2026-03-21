@@ -1,0 +1,1 @@
+import"./shaderStore-bQ-8n2dS.js";import"./sceneUboDeclaration-Bly86Rp5.js";import"./clusteredLightingFunctions-CnLO9y8p.js";import{Zn as e}from"./main-RFLtlNaK.js";export{e as lightProxyVertexShaderWGSL};

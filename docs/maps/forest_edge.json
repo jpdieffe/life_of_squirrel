@@ -1,0 +1,39 @@
+{
+  "buildings": [
+    { "x":   0, "z":   0, "width": 7, "depth": 7, "height":  6 },
+    { "x":  20, "z":   0, "width": 5, "depth": 5, "height": 10 },
+    { "x": -20, "z":   0, "width": 6, "depth": 6, "height":  4 },
+    { "x":   0, "z":  20, "width": 5, "depth": 8, "height":  7 }
+  ],
+  "structures": [
+    { "type": "tree1", "x":  10, "z":  10, "rotation": 0.0 },
+    { "type": "tree2", "x": -10, "z":  10, "rotation": 0.5 },
+    { "type": "tree1", "x":  10, "z": -10, "rotation": 1.0 },
+    { "type": "tree2", "x": -10, "z": -10, "rotation": 1.5 },
+    { "type": "tree1", "x":  28, "z":  15, "rotation": 0.2 },
+    { "type": "tree2", "x": -28, "z":  15, "rotation": 0.7 },
+    { "type": "tree1", "x":  28, "z": -15, "rotation": 1.1 },
+    { "type": "tree2", "x": -28, "z": -15, "rotation": 1.8 },
+    { "type": "tree1", "x":   0, "z":  32, "rotation": 0.3 },
+    { "type": "tree2", "x":  15, "z":  30, "rotation": 0.9 },
+    { "type": "tree1", "x": -15, "z":  30, "rotation": 0.6 },
+    { "type": "tree2", "x":  18, "z": -25, "rotation": 1.3 },
+    { "type": "tree1", "x": -18, "z": -25, "rotation": 0.4 },
+    { "type": "house",  "x":  30, "z":  -5, "rotation": 0.2 },
+    { "type": "house1", "x": -30, "z":   8, "rotation": 1.2 }
+  ],
+  "playerSpawns": [
+    { "x":  0, "z":  0 },
+    { "x": 20, "z":  0 }
+  ],
+  "monsterSpawns": [
+    { "type": "wolf",   "x":  35, "z":  10 },
+    { "type": "wolf",   "x": -35, "z":  10 },
+    { "type": "spider", "x":  10, "z":  35 },
+    { "type": "spider", "x": -10, "z":  35 },
+    { "type": "goblin", "x":  35, "z": -10 },
+    { "type": "imp",    "x": -35, "z": -10 },
+    { "type": "orc",    "x":  10, "z": -35 },
+    { "type": "slime",  "x": -10, "z": -35 }
+  ]
+}

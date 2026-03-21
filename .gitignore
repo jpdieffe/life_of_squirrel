@@ -1,0 +1,3 @@
+# node_modules only — keep docs/ so GitHub Pages can serve it
+node_modules/
+*.local

@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rooftop Runners</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
+
+    /* ── Full-screen canvas ── */
+    #renderCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      touch-action: none;
+      outline: none;
+    }
+
+    /* ── Lobby overlay ── */
+    #lobby {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.78);
+      backdrop-filter: blur(6px);
+      z-index: 20;
+    }
+
+    .card {
+      background: #12122a;
+      border: 1px solid #353570;
+      border-radius: 14px;
+      padding: 2rem 2.2rem;
+      width: min(360px, 90vw);
+      color: #e0e0f0;
+      font-family: system-ui, -apple-system, sans-serif;
+      text-align: center;
+    }
+
+    .card h1 {
+      font-size: 2rem;
+      color: #7eb8ff;
+      letter-spacing: -0.02em;
+    }
+
+    .card .subtitle {
+      color: #7070a0;
+      font-size: 0.85rem;
+      margin: 0.3rem 0 1.5rem;
+    }
+
+    /* buttons */
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 0.7rem 1rem;
+      border: none;
+      border-radius: 9px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: filter 0.15s;
+    }
+    .btn:hover  { filter: brightness(1.15); }
+    .btn:active { filter: brightness(0.9); }
+    .btn-blue  { background: #3a82d6; color: #fff; }
+    .btn-green { background: #3a9e5a; color: #fff; margin-top: 0.5rem; }
+
+    /* room code display */
+    .room-row {
+      margin-top: 0.8rem;
+      font-size: 0.85rem;
+      color: #8080b0;
+    }
+
+    #roomCode {
+      display: inline-block;
+      margin-top: 0.3rem;
+      padding: 0.35rem 0.7rem;
+      background: #08081c;
+      border: 1px solid #353570;
+      border-radius: 6px;
+      font-family: monospace;
+      font-size: 0.9rem;
+      letter-spacing: 0.06em;
+      color: #7eb8ff;
+      word-break: break-all;
+      user-select: all;
+      cursor: text;
+    }
+
+    /* divider */
+    .or {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      margin: 1.1rem 0;
+      color: #404060;
+      font-size: 0.8rem;
+    }
+    .or::before, .or::after {
+      content: '';
+      flex: 1;
+      border-top: 1px solid #282848;
+    }
+
+    /* text input */
+    input[type="text"] {
+      display: block;
+      width: 100%;
+      padding: 0.6rem 0.8rem;
+      background: #08081c;
+      border: 1px solid #353570;
+      border-radius: 9px;
+      color: #e0e0f0;
+      font-size: 0.95rem;
+      font-family: monospace;
+      outline: none;
+      margin-bottom: 0.5rem;
+    }
+    input[type="text"]:focus { border-color: #7eb8ff; }
+    input[type="text"]::placeholder { color: #404060; }
+
+    #status {
+      margin-top: 1rem;
+      min-height: 1.2em;
+      font-size: 0.82rem;
+      color: #8080b0;
+    }
+
+    /* ── HUD (shown once game starts) ── */
+    #hud {
+      position: fixed;
+      bottom: 0.9rem;
+      left: 50%;
+      transform: translateX(-50%);
+      pointer-events: none;
+      color: rgba(255, 255, 255, 0.42);
+      font-family: system-ui, sans-serif;
+      font-size: 0.78rem;
+      white-space: nowrap;
+    }
+
+    /* ── Connection badge ── */
+    #connBadge {
+      display: none;
+      position: fixed;
+      top: 0.8rem;
+      right: 0.9rem;
+      background: rgba(40, 180, 80, 0.85);
+      color: #fff;
+      padding: 0.3rem 0.7rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-family: system-ui, sans-serif;
+      font-weight: 600;
+      pointer-events: none;
+      z-index: 30;
+    }
+    /* ── Character label (top-left) ── */
+    #charLabel {
+      position: fixed;
+      top: 0.8rem;
+      left: 0.9rem;
+      font-family: system-ui, sans-serif;
+      font-size: 0.8rem;
+      font-weight: 700;
+      pointer-events: none;
+      z-index: 30;
+      opacity: 0.85;
+    }
+
+    /* ── Crosshairs ── */
+    .crosshair {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      z-index: 25;
+    }
+    .crosshair.visible { display: block; }
+
+    /* Archer: thin + with center gap */
+    #crosshairArcher {
+      width: 24px;
+      height: 24px;
+    }
+    #crosshairArcher::before,
+    #crosshairArcher::after {
+      content: '';
+      position: absolute;
+      background: rgba(255, 255, 255, 0.88);
+      border-radius: 1px;
+    }
+    /* horizontal bar — two halves with center gap */
+    #crosshairArcher::before {
+      width: 9px; height: 1.5px;
+      top: 50%; left: 0;
+      transform: translateY(-50%);
+      box-shadow: 15px 0 0 rgba(255, 255, 255, 0.88);
+    }
+    /* vertical bar — two halves with center gap */
+    #crosshairArcher::after {
+      width: 1.5px; height: 9px;
+      left: 50%; top: 0;
+      transform: translateX(-50%);
+      box-shadow: 0 15px 0 rgba(255, 255, 255, 0.88);
+    }
+
+    /* Wizard: circle + center dot */
+    #crosshairWizard {
+      width: 26px;
+      height: 26px;
+      border: 1.5px solid rgba(180, 120, 255, 0.90);
+      border-radius: 50%;
+      box-shadow: 0 0 6px rgba(160, 80, 255, 0.5);
+    }
+    #crosshairWizard::after {
+      content: '';
+      position: absolute;
+      width: 4px; height: 4px;
+      background: rgba(200, 150, 255, 0.95);
+      border-radius: 50%;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+    }
+  </style>
+  <script type="module" crossorigin src="./assets/main-RFLtlNaK.js"></script>
+  <link rel="modulepreload" crossorigin href="./assets/math.scalar.functions-koUjQvu5.js">
+  <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-Cf3xff8G.js">
+  <link rel="modulepreload" crossorigin href="./assets/observable-DBtITDIT.js">
+  <link rel="modulepreload" crossorigin href="./assets/engineStore-CIhMl3p2.js">
+  <link rel="modulepreload" crossorigin href="./assets/shaderStore-bQ-8n2dS.js">
+  <link rel="modulepreload" crossorigin href="./assets/devTools-DWEUh-L0.js">
+  <link rel="modulepreload" crossorigin href="./assets/precisionDate-DuUWkKlR.js">
+  <link rel="modulepreload" crossorigin href="./assets/logger-BM-1KlGs.js">
+  <link rel="modulepreload" crossorigin href="./assets/tools.functions-CISIN2o5.js">
+  <link rel="modulepreload" crossorigin href="./assets/guid-CvwBzcJC.js">
+  <link rel="modulepreload" crossorigin href="./assets/typeStore-CSrpcRII.js">
+  <link rel="modulepreload" crossorigin href="./assets/webRequest-B2D4VmUh.js">
+  <link rel="modulepreload" crossorigin href="./assets/tools-Ov8x5vBp.js">
+  <link rel="modulepreload" crossorigin href="./assets/dataBuffer-BoRtnjk6.js">
+  <link rel="modulepreload" crossorigin href="./assets/buffer-Bh6Wj1Jc.js">
+  <link rel="modulepreload" crossorigin href="./assets/effectRenderer-6v1EmRrJ.js">
+  <link rel="modulepreload" crossorigin href="./assets/math.vector-n7RIhjSR.js">
+  <link rel="modulepreload" crossorigin href="./assets/pickingInfo-Q4ceMmsi.js">
+  <link rel="modulepreload" crossorigin href="./assets/pointerEvents-EAxGUS7q.js">
+  <link rel="modulepreload" crossorigin href="./assets/lightConstants-CsUrY3Pj.js">
+  <link rel="modulepreload" crossorigin href="./assets/math.color-DZVAG2Td.js">
+  <link rel="modulepreload" crossorigin href="./assets/decorators-CTcNwu9d.js">
+  <link rel="modulepreload" crossorigin href="./assets/math.size-DEyVlYTR.js">
+  <link rel="modulepreload" crossorigin href="./assets/floatingOriginMatrixOverrides-BHUtS36c.js">
+  <link rel="modulepreload" crossorigin href="./assets/math.plane-BEejFI1a.js">
+  <link rel="modulepreload" crossorigin href="./assets/math.frustum-BSOOOoQA.js">
+  <link rel="modulepreload" crossorigin href="./assets/scene-BOgjKHff.js">
+  <link rel="modulepreload" crossorigin href="./assets/node-xYNuAjVK.js">
+  <link rel="modulepreload" crossorigin href="./assets/animation-BbNmBUWW.js">
+  <link rel="modulepreload" crossorigin href="./assets/animationGroup-BNVHbNSb.js">
+  <link rel="modulepreload" crossorigin href="./assets/math.path-C92gGc-e.js">
+  <link rel="modulepreload" crossorigin href="./assets/easing-DCZWw6an.js">
+  <link rel="modulepreload" crossorigin href="./assets/abstractAudioNode-6aMb4EUR.js">
+  <link rel="modulepreload" crossorigin href="./assets/webAudioBaseSubGraph-CuEcknMz.js">
+  <link rel="modulepreload" crossorigin href="./assets/abstractAudioBus-BYOmAotI.js">
+  <link rel="modulepreload" crossorigin href="./assets/abstractSoundSource-CNsJUvis.js">
+  <link rel="modulepreload" crossorigin href="./assets/abstractSoundInstance-ZMqW1i1c.js">
+  <link rel="modulepreload" crossorigin href="./assets/spatialWebAudioUpdaterComponent-CXGQHgP5.js">
+  <link rel="modulepreload" crossorigin href="./assets/spatialWebAudio-CVNGHUdt.js">
+  <link rel="modulepreload" crossorigin href="./assets/webAudioBus-SWe8siEi.js">
+  <link rel="modulepreload" crossorigin href="./assets/webAudioMainBus-NfgSDwRZ.js">
+  <link rel="modulepreload" crossorigin href="./assets/webAudioStaticSound-C1eXLjlG.js">
+  <link rel="modulepreload" crossorigin href="./assets/webAudioStreamingSound-C_ooV5ew.js">
+  <link rel="modulepreload" crossorigin href="./assets/webAudioSoundSource-DduW2Eox.js">
+  <link rel="modulepreload" crossorigin href="./assets/subMesh-CEZsHUh1.js">
+  <link rel="modulepreload" crossorigin href="./assets/texture-vm3ki_fD.js">
+  <link rel="modulepreload" crossorigin href="./assets/thinEngine-U-2wn8SE.js">
+  <link rel="modulepreload" crossorigin href="./assets/textureTools-ZjF8CEKL.js">
+  <link rel="modulepreload" crossorigin href="./assets/cubemapToSphericalPolynomial-DjL1ny2y.js">
+  <link rel="modulepreload" crossorigin href="./assets/dds-dlmcXE4f.js">
+  <link rel="modulepreload" crossorigin href="./assets/constants-BtXepr6q.js">
+  <link rel="modulepreload" crossorigin href="./assets/flowGraphBlock-DcPC2ptF.js">
+  <link rel="modulepreload" crossorigin href="./assets/flowGraphCachedOperationBlock-CMim1TBT.js">
+  <link rel="modulepreload" crossorigin href="./assets/flowGraphBinaryOperationBlock-D20dJ6ci.js">
+  <link rel="modulepreload" crossorigin href="./assets/flowGraphUnaryOperationBlock-BCY60Cl0.js">
+  <link rel="modulepreload" crossorigin href="./assets/flowGraphAssetsContext-Cw8ku88i.js">
+  <link rel="modulepreload" crossorigin href="./assets/flowGraphExecutionBlock-2DjQxzsF.js">
+  <link rel="modulepreload" crossorigin href="./assets/flowGraphExecutionBlockWithOutSignal-lRuSJ8sR.js">
+  <link rel="modulepreload" crossorigin href="./assets/flowGraphAsyncExecutionBlock-b4ExYUHD.js">
+  <link rel="modulepreload" crossorigin href="./assets/flowGraphEventBlock-Ee-fncRD.js">
+  <link rel="modulepreload" crossorigin href="./assets/utils-DZDK-R8I.js">
+  <link rel="modulepreload" crossorigin href="./assets/iesTextureLoader-rK6zp0B0.js">
+  <link rel="modulepreload" crossorigin href="./assets/exrTextureLoader-CGI_d3kj.js">
+  <link rel="modulepreload" crossorigin href="./assets/basisTextureLoader-BF9Jfn8j.js">
+  <link rel="modulepreload" crossorigin href="./assets/ddsTextureLoader-BILHOaBq.js">
+  <link rel="modulepreload" crossorigin href="./assets/envTextureLoader-C8Yfsg9m.js">
+  <link rel="modulepreload" crossorigin href="./assets/hdrTextureLoader-BcqBoC7P.js">
+  <link rel="modulepreload" crossorigin href="./assets/ktxTextureLoader-BdR9SnfV.js">
+  <link rel="modulepreload" crossorigin href="./assets/tgaTextureLoader-DnwKJXoe.js">
+  <link rel="modulepreload" crossorigin href="./assets/baseTexture.polynomial-DYECX2Vc.js">
+  <link rel="modulepreload" crossorigin href="./assets/rgbdTextureTools-DHUF1oOa.js">
+  <link rel="modulepreload" crossorigin href="./assets/brdfTextureTools-DOBIKd9I.js">
+  <link rel="modulepreload" crossorigin href="./assets/math.axis-CLFCeWgw.js">
+  <link rel="modulepreload" crossorigin href="./assets/mesh.vertexData.functions-BneuSfrw.js">
+  <link rel="modulepreload" crossorigin href="./assets/dumpTools-C04EJpxT.js">
+  <link rel="modulepreload" crossorigin href="./assets/backgroundUboDeclaration-DDHjC7aZ.js">
+  <link rel="modulepreload" crossorigin href="./assets/bakedVertexAnimation-BYsQdc_Q.js">
+  <link rel="modulepreload" crossorigin href="./assets/bonesDeclaration-Dsmzw668.js">
+  <link rel="modulepreload" crossorigin href="./assets/bonesVertex-C85lAPPj.js">
+  <link rel="modulepreload" crossorigin href="./assets/boundingBoxRendererUboDeclaration-DR5GOWmq.js">
+  <link rel="modulepreload" crossorigin href="./assets/bumpFragment-DfhbCZ0r.js">
+  <link rel="modulepreload" crossorigin href="./assets/bumpFragmentFunctions-C7hnH6ih.js">
+  <link rel="modulepreload" crossorigin href="./assets/bumpFragmentMainFunctions-D_9SshUQ.js">
+  <link rel="modulepreload" crossorigin href="./assets/bumpVertex-CdciAh0T.js">
+  <link rel="modulepreload" crossorigin href="./assets/bumpVertexDeclaration-CtQx1Udp.js">
+  <link rel="modulepreload" crossorigin href="./assets/clipPlaneFragment-3cOrDscb.js">
+  <link rel="modulepreload" crossorigin href="./assets/clipPlaneFragmentDeclaration-Yjqm3URw.js">
+  <link rel="modulepreload" crossorigin href="./assets/clipPlaneVertex-J6i4MBg0.js">
+  <link rel="modulepreload" crossorigin href="./assets/clipPlaneVertexDeclaration-Cl5cB6M_.js">
+  <link rel="modulepreload" crossorigin href="./assets/clusteredLightingFunctions-CW-c7KFv.js">
+  <link rel="modulepreload" crossorigin href="./assets/decalFragment-p3U1_g8l.js">
+  <link rel="modulepreload" crossorigin href="./assets/oitFragment-CDRl5kcV.js">
+  <link rel="modulepreload" crossorigin href="./assets/samplerVertexImplementation-D_UR4W_2.js">
+  <link rel="modulepreload" crossorigin href="./assets/defaultUboDeclaration-vg1IxtPO.js">
+  <link rel="modulepreload" crossorigin href="./assets/fogFragment-ME1XQOOC.js">
+  <link rel="modulepreload" crossorigin href="./assets/fogFragmentDeclaration-D5I1zoJU.js">
+  <link rel="modulepreload" crossorigin href="./assets/fogVertex-B6jir4Aw.js">
+  <link rel="modulepreload" crossorigin href="./assets/fogVertexDeclaration-BHI2anPg.js">
+  <link rel="modulepreload" crossorigin href="./assets/harmonicsFunctions-DviJL6nO.js">
+  <link rel="modulepreload" crossorigin href="./assets/hdrFilteringFunctions-BBs-sA15.js">
+  <link rel="modulepreload" crossorigin href="./assets/helperFunctions-D2fcpWSJ.js">
+  <link rel="modulepreload" crossorigin href="./assets/imageProcessingDeclaration-DZE6jRFa.js">
+  <link rel="modulepreload" crossorigin href="./assets/imageProcessingFunctions-DJqYC4uP.js">
+  <link rel="modulepreload" crossorigin href="./assets/instancesDeclaration-C-_RsWfi.js">
+  <link rel="modulepreload" crossorigin href="./assets/instancesVertex-CP5KZ38b.js">
+  <link rel="modulepreload" crossorigin href="./assets/kernelBlurVaryingDeclaration-Dl3QL1q_.js">
+  <link rel="modulepreload" crossorigin href="./assets/lightFragment-CvSk5yb1.js">
+  <link rel="modulepreload" crossorigin href="./assets/lightFragmentDeclaration-BGJLjsSJ.js">
+  <link rel="modulepreload" crossorigin href="./assets/lightUboDeclaration-Cm4I5kqR.js">
+  <link rel="modulepreload" crossorigin href="./assets/lightVxFragmentDeclaration-vwtXjlkE.js">
+  <link rel="modulepreload" crossorigin href="./assets/lightVxUboDeclaration-BUsiXfBj.js">
+  <link rel="modulepreload" crossorigin href="./assets/lightsFragmentFunctions-6h21rCIs.js">
+  <link rel="modulepreload" crossorigin href="./assets/logDepthDeclaration-DWhPdv63.js">
+  <link rel="modulepreload" crossorigin href="./assets/logDepthFragment-BsLT9Yxl.js">
+  <link rel="modulepreload" crossorigin href="./assets/logDepthVertex-BXTLFGtM.js">
+  <link rel="modulepreload" crossorigin href="./assets/ltcHelperFunctions-fU0DMidn.js">
+  <link rel="modulepreload" crossorigin href="./assets/mainUVVaryingDeclaration-aF22_wxU.js">
+  <link rel="modulepreload" crossorigin href="./assets/meshUboDeclaration-BQ5FkYph.js">
+  <link rel="modulepreload" crossorigin href="./assets/meshVertexDeclaration-Dq337NCT.js">
+  <link rel="modulepreload" crossorigin href="./assets/morphTargetsVertex-vvCyAQDm.js">
+  <link rel="modulepreload" crossorigin href="./assets/morphTargetsVertexDeclaration-n1bTr3Oi.js">
+  <link rel="modulepreload" crossorigin href="./assets/morphTargetsVertexGlobal-CJbNyFkA.js">
+  <link rel="modulepreload" crossorigin href="./assets/morphTargetsVertexGlobalDeclaration-l-vR20HW.js">
+  <link rel="modulepreload" crossorigin href="./assets/openpbr.fragment-0cwH2ren.js">
+  <link rel="modulepreload" crossorigin href="./assets/openpbr.vertex-D0OXUXfg.js">
+  <link rel="modulepreload" crossorigin href="./assets/openpbrUboDeclaration-DkWgJMZK.js">
+  <link rel="modulepreload" crossorigin href="./assets/packingFunctions-DzE6yxTE.js">
+  <link rel="modulepreload" crossorigin href="./assets/pbrBRDFFunctions-0ye-kk0h.js">
+  <link rel="modulepreload" crossorigin href="./assets/pbr.fragment-QEG7YgBz.js">
+  <link rel="modulepreload" crossorigin href="./assets/pbrDebug-BKf6sZ1m.js">
+  <link rel="modulepreload" crossorigin href="./assets/pbrUboDeclaration-HXPDkQ8n.js">
+  <link rel="modulepreload" crossorigin href="./assets/pbr.vertex-B5q4826F.js">
+  <link rel="modulepreload" crossorigin href="./assets/pointCloudVertex-DZP0wPTE.js">
+  <link rel="modulepreload" crossorigin href="./assets/reflectionFunction-BXnRbKlZ.js">
+  <link rel="modulepreload" crossorigin href="./assets/samplerFragmentDeclaration-BwGiw8oi.js">
+  <link rel="modulepreload" crossorigin href="./assets/sceneFragmentDeclaration-BLjPsaMt.js">
+  <link rel="modulepreload" crossorigin href="./assets/sceneUboDeclaration-Ux6ymga3.js">
+  <link rel="modulepreload" crossorigin href="./assets/sceneVertexDeclaration-CZ8J_9HV.js">
+  <link rel="modulepreload" crossorigin href="./assets/screenSpaceRayTrace-B8QRhdXb.js">
+  <link rel="modulepreload" crossorigin href="./assets/shadowsFragmentFunctions-D-AXu5s_.js">
+  <link rel="modulepreload" crossorigin href="./assets/shadowsVertex-C0yg41BG.js">
+  <link rel="modulepreload" crossorigin href="./assets/vertexColorMixing-zKLXNkJc.js">
+  <link rel="modulepreload" crossorigin href="./assets/lod.fragment-CTLXRuyH.js">
+  <link rel="modulepreload" crossorigin href="./assets/lodCube.fragment-_LiOAv2P.js">
+  <link rel="modulepreload" crossorigin href="./assets/pass.fragment-C_lBmdws.js">
+  <link rel="modulepreload" crossorigin href="./assets/passCube.fragment-CKZwEDeI.js">
+  <link rel="modulepreload" crossorigin href="./assets/postprocess.vertex-VaCwq5vx.js">
+  <link rel="modulepreload" crossorigin href="./assets/rgbdDecode.fragment-Dx1jf66d.js">
+  <link rel="modulepreload" crossorigin href="./assets/rgbdEncode.fragment-B5X7I2Ul.js">
+  <link rel="modulepreload" crossorigin href="./assets/backgroundUboDeclaration-BjCPblYB.js">
+  <link rel="modulepreload" crossorigin href="./assets/bakedVertexAnimation-COZ_2RJD.js">
+  <link rel="modulepreload" crossorigin href="./assets/bonesDeclaration-52lfPWHh.js">
+  <link rel="modulepreload" crossorigin href="./assets/bonesVertex-CEr3MGdV.js">
+  <link rel="modulepreload" crossorigin href="./assets/bumpFragment-BqOopqZI.js">
+  <link rel="modulepreload" crossorigin href="./assets/bumpFragmentFunctions-DYVMEhnH.js">
+  <link rel="modulepreload" crossorigin href="./assets/bumpFragmentMainFunctions-TTKIvQSm.js">
+  <link rel="modulepreload" crossorigin href="./assets/bumpVertex-DFJtVLDS.js">
+  <link rel="modulepreload" crossorigin href="./assets/bumpVertexDeclaration-DjJK82ga.js">
+  <link rel="modulepreload" crossorigin href="./assets/clipPlaneFragment-BOavPyrK.js">
+  <link rel="modulepreload" crossorigin href="./assets/clipPlaneFragmentDeclaration-AYoYMJpd.js">
+  <link rel="modulepreload" crossorigin href="./assets/clipPlaneVertex-D0YlXMsn.js">
+  <link rel="modulepreload" crossorigin href="./assets/clipPlaneVertexDeclaration-CI8K5eqA.js">
+  <link rel="modulepreload" crossorigin href="./assets/clusteredLightingFunctions-CnLO9y8p.js">
+  <link rel="modulepreload" crossorigin href="./assets/decalFragment-BzoxsTRO.js">
+  <link rel="modulepreload" crossorigin href="./assets/defaultUboDeclaration-BS4XaTHE.js">
+  <link rel="modulepreload" crossorigin href="./assets/oitFragment-DpAY-SoA.js">
+  <link rel="modulepreload" crossorigin href="./assets/fogFragment-CKTZIdYu.js">
+  <link rel="modulepreload" crossorigin href="./assets/fogFragmentDeclaration-DzwnhB7k.js">
+  <link rel="modulepreload" crossorigin href="./assets/fogVertex-2pidAZvO.js">
+  <link rel="modulepreload" crossorigin href="./assets/fogVertexDeclaration-CiIFM82I.js">
+  <link rel="modulepreload" crossorigin href="./assets/fresnelFunction--PYSPelc.js">
+  <link rel="modulepreload" crossorigin href="./assets/harmonicsFunctions-BNVyR_fe.js">
+  <link rel="modulepreload" crossorigin href="./assets/hdrFilteringFunctions-D9J_i1vV.js">
+  <link rel="modulepreload" crossorigin href="./assets/helperFunctions-CEj0ZPLx.js">
+  <link rel="modulepreload" crossorigin href="./assets/imageProcessingDeclaration-CLBH-CNy.js">
+  <link rel="modulepreload" crossorigin href="./assets/imageProcessingFunctions-BfUy7480.js">
+  <link rel="modulepreload" crossorigin href="./assets/instancesDeclaration-By-oeXNP.js">
+  <link rel="modulepreload" crossorigin href="./assets/instancesVertex-ivPNtCO1.js">
+  <link rel="modulepreload" crossorigin href="./assets/kernelBlurVaryingDeclaration-CRyQ0ug2.js">
+  <link rel="modulepreload" crossorigin href="./assets/lightFragment-B6ddoNtq.js">
+  <link rel="modulepreload" crossorigin href="./assets/lightUboDeclaration-Cb3mf1yy.js">
+  <link rel="modulepreload" crossorigin href="./assets/lightVxUboDeclaration-BTxjlLoT.js">
+  <link rel="modulepreload" crossorigin href="./assets/lightsFragmentFunctions-CaSMHFnr.js">
+  <link rel="modulepreload" crossorigin href="./assets/logDepthDeclaration-BIg8_0c_.js">
+  <link rel="modulepreload" crossorigin href="./assets/logDepthFragment-DhoQ6dQ7.js">
+  <link rel="modulepreload" crossorigin href="./assets/logDepthVertex-DYQawlbe.js">
+  <link rel="modulepreload" crossorigin href="./assets/ltcHelperFunctions-Cdsnm2_E.js">
+  <link rel="modulepreload" crossorigin href="./assets/mainUVVaryingDeclaration-D0tNJblv.js">
+  <link rel="modulepreload" crossorigin href="./assets/meshUboDeclaration-B0kqgl_n.js">
+  <link rel="modulepreload" crossorigin href="./assets/morphTargetsVertex-NWVzcmo0.js">
+  <link rel="modulepreload" crossorigin href="./assets/morphTargetsVertexDeclaration-BZ9J518M.js">
+  <link rel="modulepreload" crossorigin href="./assets/morphTargetsVertexGlobal-Cy6RiVUr.js">
+  <link rel="modulepreload" crossorigin href="./assets/morphTargetsVertexGlobalDeclaration-Diq9qq4z.js">
+  <link rel="modulepreload" crossorigin href="./assets/openpbr.fragment-BAk2shuG.js">
+  <link rel="modulepreload" crossorigin href="./assets/openpbr.vertex-B1lvDX_r.js">
+  <link rel="modulepreload" crossorigin href="./assets/openpbrUboDeclaration-_prvi_3i.js">
+  <link rel="modulepreload" crossorigin href="./assets/packingFunctions-D19yHdlm.js">
+  <link rel="modulepreload" crossorigin href="./assets/pbrBRDFFunctions-BrwVneRe.js">
+  <link rel="modulepreload" crossorigin href="./assets/pbr.fragment-DilWUDef.js">
+  <link rel="modulepreload" crossorigin href="./assets/pbrDebug-C1GRuRTe.js">
+  <link rel="modulepreload" crossorigin href="./assets/pbrUboDeclaration-CD_EWK-3.js">
+  <link rel="modulepreload" crossorigin href="./assets/samplerVertexImplementation-B_TFvERq.js">
+  <link rel="modulepreload" crossorigin href="./assets/reflectionFunction-BkzeySq0.js">
+  <link rel="modulepreload" crossorigin href="./assets/samplerFragmentDeclaration-CCEu2v_8.js">
+  <link rel="modulepreload" crossorigin href="./assets/sceneUboDeclaration-Bly86Rp5.js">
+  <link rel="modulepreload" crossorigin href="./assets/screenSpaceRayTrace-3OG5aus6.js">
+  <link rel="modulepreload" crossorigin href="./assets/shadowsFragmentFunctions-DlnxvtS-.js">
+  <link rel="modulepreload" crossorigin href="./assets/shadowsVertex-BmOtmHMR.js">
+  <link rel="modulepreload" crossorigin href="./assets/vertexColorMixing-Cf8fpCDu.js">
+  <link rel="modulepreload" crossorigin href="./assets/lod.fragment-I_r_CAxZ.js">
+  <link rel="modulepreload" crossorigin href="./assets/lodCube.fragment-CSWCvlTd.js">
+  <link rel="modulepreload" crossorigin href="./assets/pass.fragment-CF5NTQVY.js">
+  <link rel="modulepreload" crossorigin href="./assets/passCube.fragment-CceMO3e0.js">
+  <link rel="modulepreload" crossorigin href="./assets/pbr.vertex-CHILwE15.js">
+  <link rel="modulepreload" crossorigin href="./assets/postprocess.vertex-CrI3ieds.js">
+  <link rel="modulepreload" crossorigin href="./assets/rgbdDecode.fragment-eD1Ruzek.js">
+  <link rel="modulepreload" crossorigin href="./assets/rgbdEncode.fragment-meXWmtJ2.js">
+</head>
+<body>
+  <canvas id="renderCanvas" tabindex="0"></canvas>
+
+  <!-- Lobby overlay -->
+  <div id="lobby">
+    <div class="card">
+      <h1>Rooftop Runners</h1>
+      <p class="subtitle">2-player &bull; Browser P2P &bull; No install</p>
+
+      <!-- Host side -->
+      <button class="btn btn-blue" id="hostBtn">Host Game</button>
+      <div class="room-row">
+        Room code:<br>
+        <span id="roomCode" title="Click to select, then copy">—</span>
+      </div>
+
+      <div class="or">or</div>
+
+      <!-- Join side -->
+      <input id="roomInput" type="text" placeholder="Paste friend's room code" autocomplete="off" spellcheck="false" />
+      <button class="btn btn-green" id="joinBtn">Join Game</button>
+
+      <div id="status"></div>
+    </div>
+  </div>
+
+  <!-- Connected badge -->
+  <div id="connBadge">● Connected</div>
+
+  <!-- Character class indicator -->
+  <div id="charLabel"></div>
+
+  <!-- Crosshairs (shown when pointer is locked to the right class) -->
+  <div id="crosshairArcher" class="crosshair"></div>
+  <div id="crosshairWizard" class="crosshair"></div>
+
+  <!-- Controls hint -->
+  <div id="hud">
+    WASD / Arrows &nbsp;·&nbsp; Space / E to jump &nbsp;·&nbsp; Click to capture mouse &nbsp;·&nbsp; Click to attack &nbsp;·&nbsp; Scroll to zoom &nbsp;·&nbsp; ` for characters &nbsp;·&nbsp; Esc to release
+  </div>
+
+</body>
+</html>
