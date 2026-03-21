@@ -479,6 +479,8 @@ export class Player {
     return this.character === 'gull'
   }
 
+  get facingAngle(): number { return this.facingY }
+
   getState(): PlayerState {
     return {
       x:      this.position.x,

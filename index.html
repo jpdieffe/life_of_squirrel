@@ -239,6 +239,46 @@
       z-index: 15;
     }
 
+    /* ── Acorn counter (top-left, below room badge) ── */
+    #acornCount {
+      display: none;
+      position: fixed;
+      top: 2.7rem;
+      left: 0.9rem;
+      background: rgba(10, 10, 30, 0.75);
+      border: 1px solid #614a1c;
+      border-radius: 8px;
+      padding: 0.25rem 0.65rem;
+      color: #d4a843;
+      font-family: monospace;
+      font-size: 0.85rem;
+      font-weight: 600;
+      pointer-events: none;
+      z-index: 15;
+      letter-spacing: 0.04em;
+    }
+
+    /* ── Build mode indicator ── */
+    #buildMode {
+      display: none;
+      position: fixed;
+      top: 1.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 20, 50, 0.88);
+      border: 1px solid #3a9ae6;
+      border-radius: 10px;
+      padding: 0.4rem 1.4rem;
+      color: #7bc8ff;
+      font-family: system-ui, sans-serif;
+      font-size: 0.88rem;
+      font-weight: 700;
+      pointer-events: none;
+      z-index: 15;
+      white-space: nowrap;
+      letter-spacing: 0.03em;
+    }
+
     /* ── Stamina bar ── */
     #staminaBar {
       position: fixed;
@@ -306,12 +346,18 @@
     <div id="staminaFill" style="width:100%"></div>
   </div>
 
+  <!-- Acorn counter -->
+  <div id="acornCount">🌰 0</div>
+
+  <!-- Build mode indicator -->
+  <div id="buildMode">🏗 BUILD MODE &nbsp;&middot;&nbsp; Click to place &nbsp;&middot;&nbsp; [T] to exit</div>
+
   <!-- Connected badge -->
   <div id="connBadge">● Connected</div>
 
   <!-- Controls hint -->
   <div id="hud">
-    WASD / Arrows &nbsp;&middot;&nbsp; Space / E to jump &nbsp;&middot;&nbsp; Shift to sneak &nbsp;&middot;&nbsp; R to sprint &nbsp;&middot;&nbsp; Scroll to zoom &nbsp;&middot;&nbsp; Click to capture mouse &nbsp;&middot;&nbsp; ` to toggle debug
+    WASD / Arrows &nbsp;&middot;&nbsp; Space / E to jump &nbsp;&middot;&nbsp; Shift to sneak &nbsp;&middot;&nbsp; R to sprint &nbsp;&middot;&nbsp; T to build &nbsp;&middot;&nbsp; Scroll to zoom &nbsp;&middot;&nbsp; Click to capture mouse &nbsp;&middot;&nbsp; ` to toggle debug
   </div>
 
   <script type="module" src="/src/main.ts"></script>

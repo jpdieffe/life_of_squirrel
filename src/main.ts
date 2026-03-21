@@ -7,6 +7,8 @@ import { DebugPanel } from './debug'
 import { Hawk } from './hawk'
 import { Fox } from './fox'
 import { Human } from './human'
+import { Acorns } from './acorns'
+import { BuildingSystem } from './building'
 
 const canvas      = document.getElementById('renderCanvas') as HTMLCanvasElement
 const lobbyEl     = document.getElementById('lobby')!
@@ -66,12 +68,35 @@ async function startGame() {
   const hawk       = new Hawk(scene, world.leaves)
   const fox        = new Fox(scene)
   const human      = new Human(scene)
+  const acorns     = new Acorns(scene)
+  const building   = new BuildingSystem(scene)
   const debugPanel = new DebugPanel(canvas)
   debugPanel.onSwitchCharacter = () => {
     const next = player.getState().char === 'gull' ? 'squirrel' : 'gull'
     player.setCharacter(next)
     debugPanel.setCharacter(next)
   }
+
+  const acornCountEl = document.getElementById('acornCount')!
+  const buildModeEl  = document.getElementById('buildMode')!
+  acornCountEl.style.display = 'block'
+
+  // T → toggle building mode
+  window.addEventListener('keydown', (e) => {
+    if (e.code !== 'KeyT') return
+    if (document.pointerLockElement !== canvas) return
+    e.preventDefault()
+    building.toggle()
+    buildModeEl.style.display = building.isActive ? 'block' : 'none'
+  })
+
+  // Left-click in build mode → place block
+  canvas.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0 || document.pointerLockElement !== canvas) return
+    if (!building.isActive) return
+    const def = building.place(() => acorns.consume())
+    if (def) world.buildings.push(def)
+  })
 
   player.health.onDeath = () => {
     player.onDeath()
@@ -116,6 +141,9 @@ async function startGame() {
 
     player.update(dt)
     world.updateLeafFade(player.position, player.camera.position)
+    acorns.update(dt, player.position)
+    building.update(player.position, player.facingAngle)
+    acornCountEl.textContent = `🌰 ${acorns.count}`
 
     // ── Wave tick (host only) ────────────────────────────────────────────────
     if (isHost) {
