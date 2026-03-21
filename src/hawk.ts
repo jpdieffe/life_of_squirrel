@@ -178,8 +178,8 @@ export class Hawk {
   }
 
   private updateDive(dt: number, playerPos: Vector3, health: HealthSystem, playerCrouching: boolean) {
-    // Abort if player hides (leaves or crouch)
-    if (this.isPlayerHidden(playerPos, playerCrouching)) {
+    // Only leaves abort a locked-on hawk — crouching alone won't deter him
+    if (this.isPlayerHidden(playerPos, false)) {
       this.state = 'returning'
       this.switchAnim('glide')
       return

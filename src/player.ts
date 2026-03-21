@@ -346,7 +346,7 @@ export class Player {
     const activeEntry = this.activeEntries[this.currentAnim]
     activeEntry?.root.getChildMeshes(false).forEach(m => {
       m.isVisible  = v
-      m.visibility = sneakTransparent ? 0.35 : 1.0
+      m.visibility = sneakTransparent ? 0.2 : 1.0
     })
   }
 
