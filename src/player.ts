@@ -113,7 +113,7 @@ export class Player {
 
     const canvas = scene.getEngine().getRenderingCanvas()!
     const SENSITIVITY = 0.0025
-    const MIN_BETA = 0.15
+    const MIN_BETA = 0.01
     const MAX_BETA = Math.PI / 2.05
 
     canvas.addEventListener('mousedown', e => {
