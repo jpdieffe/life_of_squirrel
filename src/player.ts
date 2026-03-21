@@ -5,6 +5,7 @@ import {
   StandardMaterial,
   Color3,
   Vector3,
+  Quaternion,
   ArcRotateCamera,
   Mesh,
   SceneLoader,
@@ -27,6 +28,27 @@ const RESPAWN_Y     = -12    // fall off world threshold
 const SQUIRREL_SCALE = 2.0
 
 const SPAWN = new Vector3(0, 0, -8)
+
+// ── Wall-climbing constants ──────────────────────────────────────────────────
+// Only applies to the squirrel character on the outer house walls.
+const WALL_ATTACH_DIST  = 1.2    // max distance from wall face to latch on
+const WALL_GRAVITY      = -14    // gravity while on wall (weaker than normal)
+const WALL_MOVE_SPEED   = 7      // m/s sliding along wall
+const WALL_JUMP_NORMAL  = 14     // velocity away from the wall on jump
+const WALL_JUMP_UP      = 12     // upward velocity component on wall jump
+
+// Outer house wall faces — must match _buildHouse constants in world.ts
+// HX=90, HZ=90, HW=84(WX=48,EX=132), HD=70(SZ=55,NZ=125), GH=22.4
+const HOUSE_WALL_FACES = [
+  // South face — outer face points in -Z direction (normal 0,0,-1)
+  { nx: 0, nz: -1, faceZ:  55, minX:  48, maxX: 132, wallHeight: 22.4 },
+  // North face — outer face points in +Z direction (normal 0,0,+1)
+  { nx: 0, nz:  1, faceZ: 125, minX:  48, maxX: 132, wallHeight: 22.4 },
+  // West face  — outer face points in -X direction (normal -1,0,0)
+  { nx: -1, nz: 0, faceX:  48, minZ:  55, maxZ: 125, wallHeight: 22.4 },
+  // East face  — outer face points in +X direction (normal +1,0,0)
+  { nx:  1, nz: 0, faceX: 132, minZ:  55, maxZ: 125, wallHeight: 22.4 },
+] as const
 
 const SQUIRREL_ANIM_FILES: Partial<Record<AnimState, string>> = {
   idle:  './assets/squirrel/idle.glb',
@@ -100,6 +122,12 @@ export class Player {
   private stamina           = 1.0
   private staminaRegenDelay = 0
   private desiredRadius     = 14   // scroll zoom target; actual radius shrinks when looking up
+
+  // Wall-climbing state (squirrel only)
+  private wallNormal: Vector3 | null = null    // outward normal of the wall we're on
+  private wallU      = new Vector3()           // horizontal "right" on the wall surface
+  private wallV      = new Vector3()           // vertical "up" on the wall surface (= world up normally)
+  private wallPos    = 0                       // distance along wallNormal from face origin
 
   private readonly keys: Record<string, boolean> = {}
   private readonly buildings: BuildingDef[]
@@ -213,10 +241,77 @@ export class Player {
       return moving ? 'walk' : 'idle'
     }
     if (this.isDead) return 'death'
-    if (!this.onGround) return this.velocity.y > -3 ? 'jump' : 'fall'
+    // On a wall counts as "grounded" for animation purposes
+    if (!this.onGround && this.wallNormal === null) return this.velocity.y > -3 ? 'jump' : 'fall'
     if (this.keys['ShiftLeft'] || this.keys['ShiftRight']) return 'sneak'
     if (moving) return 'run'
     return 'idle'
+  }
+
+  /** Try to attach to a house wall face when the squirrel moves close enough. */
+  private tryAttachWall(): boolean {
+    if (this.character !== 'squirrel') return false
+    if (this.wallNormal !== null) return true  // already attached
+
+    for (const face of HOUSE_WALL_FACES) {
+      let dist: number
+      if (face.nx !== 0) {
+        // X-aligned face
+        dist = (this.position.x - face.faceX) * face.nx
+        if (dist < 0 || dist > WALL_ATTACH_DIST) continue
+        if (this.position.z < face.minZ || this.position.z > face.maxZ) continue
+        if (this.position.y < 0 || this.position.y > face.wallHeight) continue
+      } else {
+        // Z-aligned face
+        dist = (this.position.z - face.faceZ) * face.nz
+        if (dist < 0 || dist > WALL_ATTACH_DIST) continue
+        if (this.position.x < face.minX || this.position.x > face.maxX) continue
+        if (this.position.y < 0 || this.position.y > face.wallHeight) continue
+      }
+
+      // Player must be moving toward the wall to latch (prevents accidental attach from inside)
+      const movingIntoWall = (this.velocity.x * face.nx + this.velocity.z * face.nz) < -0.5
+      if (!movingIntoWall) continue
+
+      this.wallNormal = new Vector3(face.nx, 0, face.nz)
+      // wallU = right direction on the wall surface
+      this.wallU = new Vector3(-face.nz, 0, face.nx)  // perpendicular in XZ
+      // wallV = up direction on wall surface = world Y (wall is vertical)
+      this.wallV = new Vector3(0, 1, 0)
+      this.wallPos = 0
+      // Snap to wall surface
+      if (face.nx !== 0) this.position.x = face.faceX + face.nx * PLAYER_RADIUS
+      else                this.position.z = face.faceZ + face.nz * PLAYER_RADIUS
+      // Kill velocity component into the wall
+      const intoWall = Vector3.Dot(this.velocity, this.wallNormal)
+      if (intoWall < 0) {
+        this.velocity.x -= this.wallNormal.x * intoWall
+        this.velocity.z -= this.wallNormal.z * intoWall
+      }
+      return true
+    }
+    return false
+  }
+
+  /** Check if we should leave the wall (jumped off, climbed over top, slipped off edge). */
+  private checkDetachWall() {
+    if (this.wallNormal === null) return
+    const n = this.wallNormal
+    for (const face of HOUSE_WALL_FACES) {
+      if (face.nx !== n.x || face.nz !== n.z) continue
+      // Fell below ground
+      if (this.position.y < -PLAYER_RADIUS) { this.wallNormal = null; return }
+      // Climbed over the top
+      if (this.position.y > face.wallHeight + 0.5) { this.wallNormal = null; return }
+      // Drifted outside the face's horizontal extent
+      if (face.nx !== 0) {
+        if (this.position.z < face.minZ - 0.5 || this.position.z > face.maxZ + 0.5) { this.wallNormal = null; return }
+      } else {
+        if (this.position.x < face.minX - 0.5 || this.position.x > face.maxX + 0.5) { this.wallNormal = null; return }
+      }
+      return  // Still valid
+    }
+    this.wallNormal = null
   }
 
   update(dt: number) {
@@ -258,6 +353,93 @@ export class Player {
     if (staminaFill) staminaFill.style.width = `${this.stamina * 100}%`
     if (staminaBar)  staminaBar.style.display = (isSprinting || this.stamina < 1.0) ? 'block' : 'none'
 
+    const spaceDown = this.keys['Space'] || this.keys['KeyE']
+
+    // ── Wall-climbing mode (squirrel only) ──────────────────────────────────
+    if (this.character === 'squirrel') {
+      // Try to latch if not already on wall
+      if (this.wallNormal === null) this.tryAttachWall()
+
+      if (this.wallNormal !== null) {
+        const n = this.wallNormal
+
+        // Project camera-forward onto the wall's horizontal axis (wallU) and vertical (wallV)
+        const camFwd = new Vector3(fwdX, 0, fwdZ)
+        const camRgt = new Vector3(rgtX, 0, rgtZ)
+        // Horizontal movement on the wall = component along wallU
+        const uFwd = Vector3.Dot(camFwd, this.wallU)
+        const uRgt = Vector3.Dot(camRgt, this.wallU)
+        // Vertical movement on the wall = component along world-Y (camera pitch via fwd.y=0 so use raw keys)
+        let wallHoriz = 0, wallVert = 0
+        if (this.keys['KeyW'] || this.keys['ArrowUp'])    { wallHoriz += uFwd; wallVert += Math.sin(-this.camera.beta + Math.PI / 2) }
+        if (this.keys['KeyS'] || this.keys['ArrowDown'])  { wallHoriz -= uFwd; wallVert -= Math.sin(-this.camera.beta + Math.PI / 2) }
+        if (this.keys['KeyA'] || this.keys['ArrowLeft'])  { wallHoriz -= uRgt }
+        if (this.keys['KeyD'] || this.keys['ArrowRight']) { wallHoriz += uRgt }
+
+        const wallMoving = Math.abs(wallHoriz) > 0.01 || Math.abs(wallVert) > 0.01
+        const wallLen = Math.sqrt(wallHoriz * wallHoriz + wallVert * wallVert)
+        if (wallLen > 0) { wallHoriz /= wallLen; wallVert /= wallLen }
+
+        const wallSpeed = isSneaking ? SNEAK_SPEED : isSprinting ? SPRINT_SPEED : WALL_MOVE_SPEED
+        // Apply wall gravity (slides player downward along wall)
+        this.velocity.y += WALL_GRAVITY * dt
+        if (this.velocity.y < TERMINAL_VEL) this.velocity.y = TERMINAL_VEL
+
+        // Horizontal velocity on wall surface
+        this.velocity.x = wallHoriz * this.wallU.x * wallSpeed
+        this.velocity.z = wallHoriz * this.wallU.z * wallSpeed
+        // Vertical on wall = wallVert * speed, overrides gravity
+        if (wallMoving && Math.abs(wallVert) > 0.01) {
+          this.velocity.y = wallVert * wallSpeed
+        }
+
+        // Wall-jump: space launches away from wall
+        if (spaceDown && !this.spaceWasDown) {
+          this.velocity.x += n.x * WALL_JUMP_NORMAL
+          this.velocity.z += n.z * WALL_JUMP_NORMAL
+          this.velocity.y  = WALL_JUMP_UP
+          this.wallNormal  = null   // detach
+        } else if (!spaceDown) {
+          // Keep pushing into the wall so we stay attached
+          this.velocity.x -= n.x * 2
+          this.velocity.z -= n.z * 2
+        }
+
+        this.spaceWasDown = spaceDown
+
+        this.position.x += this.velocity.x * dt
+        this.position.y += this.velocity.y * dt
+        this.position.z += this.velocity.z * dt
+
+        if (this.position.y < RESPAWN_Y) { this.respawn(); return }
+
+        this.checkDetachWall()
+        if (this.wallNormal === null) {
+          // Detached — fall into normal physics next frame
+        } else {
+          // Snap back to wall surface
+          this.snapToWall()
+          this.onGround = true  // treat wall as "ground" for animation purposes
+        }
+
+        // Facing: point along the wall surface in movement direction (or toward world if idle)
+        const wallFacingU = wallMoving ? wallHoriz : 0
+        const wallFacingV = wallMoving ? wallVert  : 0
+        if (wallMoving) {
+          // Face direction of travel along the wall (in world XZ)
+          const faceX = this.wallU.x * wallFacingU
+          const faceZ = this.wallU.z * wallFacingU
+          if (Math.abs(faceX) > 0.01 || Math.abs(faceZ) > 0.01) {
+            this.facingY = Math.atan2(faceX, faceZ)
+          }
+        }
+
+        this.updateMeshAndCamera(isSneaking, isSprinting, wallMoving || moving, true, wallFacingV)
+        return
+      }
+    }
+    // ── End wall-climbing mode ───────────────────────────────────────────────
+
     const gullAirSpeed = this.flapThrustTimer > 0 ? GULL_FLY_SPEED : GULL_GLIDE_SPEED
     const speed = isSneaking ? SNEAK_SPEED
       : isSprinting ? SPRINT_SPEED
@@ -267,7 +449,6 @@ export class Player {
     this.velocity.x = mx * speed
     this.velocity.z = mz * speed
 
-    const spaceDown = this.keys['Space'] || this.keys['KeyE']
     if (this.character === 'gull') {
       // Each space press = flap boost (with cooldown)
       if (spaceDown && !this.spaceWasDown && this.flapCooldown <= 0) {
@@ -312,14 +493,57 @@ export class Player {
     this.onGround = false
     this.resolveCollisions()
 
+    if (moving) this.facingY = Math.atan2(fwdX, fwdZ)
+
+    this.updateMeshAndCamera(isSneaking, isSprinting, moving, false, 0)
+  }
+
+  /** Snap position to lie exactly on the wall surface. */
+  private snapToWall() {
+    if (this.wallNormal === null) return
+    const n = this.wallNormal
+    for (const face of HOUSE_WALL_FACES) {
+      if (face.nx !== n.x || face.nz !== n.z) continue
+      if (face.nx !== 0) {
+        this.position.x = face.faceX + face.nx * PLAYER_RADIUS
+        this.velocity.x = 0
+      } else {
+        this.position.z = face.faceZ + face.nz * PLAYER_RADIUS
+        this.velocity.z = 0
+      }
+      // Clamp to wall vertical extent
+      this.position.y = Math.max(0, Math.min(face.wallHeight - PLAYER_HEIGHT, this.position.y))
+      return
+    }
+  }
+
+  /** Shared logic to position mesh, camera, animations each frame. */
+  private updateMeshAndCamera(
+    isSneaking: boolean, isSprinting: boolean, moving: boolean,
+    onWall: boolean, wallVertDir: number,
+  ) {
     this.mesh.position.set(
       this.position.x,
       this.position.y + PLAYER_HEIGHT / 2,
       this.position.z,
     )
 
-    if (moving) this.facingY = Math.atan2(fwdX, fwdZ)
-    this.mesh.rotation.y = this.facingY
+    if (!onWall) {
+      // Normal upright orientation
+      this.mesh.rotationQuaternion = null
+      this.mesh.rotation.y = this.facingY
+    } else if (this.wallNormal !== null) {
+      // Tilt the capsule mesh too so it lies flat against the wall
+      const n = this.wallNormal
+      const facingQuat = Quaternion.RotationAxis(Vector3.Up(), this.facingY)
+      let tiltQuat: Quaternion
+      if (n.x !== 0) {
+        tiltQuat = Quaternion.RotationAxis(new Vector3(0, 0, 1), -n.x * Math.PI / 2)
+      } else {
+        tiltQuat = Quaternion.RotationAxis(new Vector3(1, 0, 0), n.z * Math.PI / 2)
+      }
+      this.mesh.rotationQuaternion = facingQuat.multiply(tiltQuat)
+    }
 
     this.switchAnim(this.computeAnimState(moving))
     // Speed up run animation while sprinting
@@ -328,6 +552,7 @@ export class Player {
       if (runEntry?.group) runEntry.group.speedRatio = isSprinting ? 1.8 : 1.0
     }
 
+    const n = this.wallNormal
     for (const entry of Object.values(this.activeEntries)) {
       if (!entry) continue
       entry.root.position.set(
@@ -335,7 +560,28 @@ export class Player {
         this.position.y + entry.yOffset,
         this.position.z,
       )
-      entry.root.rotation.y = this.facingY
+      if (onWall && n !== null) {
+        // Tilt so the squirrel's feet point into the wall.
+        // Strategy: rotate around the facing direction to tilt "up" toward the wall normal.
+        // For X-axis walls (East/West): rotate around Z by ±90°
+        // For Z-axis walls (South/North): rotate around X by ∓90°
+        // Then layer the facing-Y rotation on top.
+        const facingQuat = Quaternion.RotationAxis(Vector3.Up(), this.facingY)
+        let tiltQuat: Quaternion
+        if (n.x !== 0) {
+          // East (+X normal) tilt forward, West (-X normal) tilt backward
+          tiltQuat = Quaternion.RotationAxis(new Vector3(0, 0, 1), -n.x * Math.PI / 2)
+        } else {
+          // North (+Z normal) tilt right, South (-Z normal) tilt left
+          tiltQuat = Quaternion.RotationAxis(new Vector3(1, 0, 0), n.z * Math.PI / 2)
+        }
+        entry.root.rotationQuaternion = facingQuat.multiply(tiltQuat)
+      } else {
+        entry.root.rotationQuaternion = null
+        entry.root.rotation.y = this.facingY
+        entry.root.rotation.x = 0
+        entry.root.rotation.z = 0
+      }
     }
 
     this.camera.target.copyFrom(this.mesh.position)
@@ -376,6 +622,7 @@ export class Player {
     this.health.reset()
     this.stamina           = 1.0
     this.staminaRegenDelay = 0
+    this.wallNormal        = null
   }
 
   onDeath() {
@@ -463,6 +710,7 @@ export class Player {
     this.flapCooldown  = 0
     this.flapAnimTimer = 0
     this.spaceWasDown  = false
+    this.wallNormal    = null
     // Show the new character's idle
     const idleEntry = this.activeEntries['idle']
     if (idleEntry) {
