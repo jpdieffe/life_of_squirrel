@@ -65,6 +65,9 @@ export interface EnemyState {
   foxActive: boolean
   fx: number; fy: number; fz: number; fry: number
   foxStalking: boolean
+  // human NPC
+  huX: number; huY: number; huZ: number; huRY: number
+  huAnim: string
 }
 
 /** Network message envelope */

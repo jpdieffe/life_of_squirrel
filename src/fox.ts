@@ -12,14 +12,14 @@ import type { HealthSystem } from './health'
 
 // ── Tuning ────────────────────────────────────────────────────────────────────
 const FOX_SCALE          = 2.5
-const WANDER_SPEED       = 8       // m/s while running to a random waypoint
-const STALK_SPEED        = 2.5     // m/s while sneaking toward player
-const CHASE_SPEED        = 12      // m/s while chasing a fleeing player
-const POUNCE_SPEED       = 18      // m/s horizontal during leap
+const WANDER_SPEED       = 11      // m/s while running to a random waypoint
+const STALK_SPEED        = 4.5     // m/s while sneaking toward player
+const CHASE_SPEED        = 20      // m/s while chasing a fleeing player
+const POUNCE_SPEED       = 22      // m/s horizontal during leap
 const POUNCE_HEIGHT      = 5.0     // peak Y height during pounce arc
-const AGGRO_RADIUS       = 28      // m: spots a player within this range
-const DEAGGRO_RADIUS     = 36      // m: gives up stalk/chase if player gets this far
-const POUNCE_RANGE       = 8       // m: triggers pounce when this close while stalking
+const AGGRO_RADIUS       = 42      // m: spots a player within this range
+const DEAGGRO_RADIUS     = 52      // m: gives up stalk/chase if player gets this far
+const POUNCE_RANGE       = 10      // m: triggers pounce when this close while stalking
 const HIT_RADIUS         = 2.5     // m: deals damage when this close to player during leap
 const POUNCE_COOLDOWN    = 3.5     // s: idle cooldown after a pounce before wandering again
 const IDLE_DUR_MIN       = 2       // s: min idle pause during wander
@@ -31,7 +31,7 @@ const WANDER_BOUND       = 50      // m from origin: fox wanders within this box
 const GROUND_Y_MAX       = 1.5     // player y below this = on ground → stalk
 const LOW_FLY_MAX        = 9       // player y below this = flying low → immediate pounce
 const FLEE_RATE          = 3       // m/s: if gap is growing faster than this, player is fleeing
-const CROUCH_AGGRO_RADIUS = 8      // fox can barely see a crouching player within this range
+const CROUCH_AGGRO_RADIUS = 16     // fox can barely see a crouching player within this range
 
 type FoxAnim  = 'idle' | 'run' | 'sneak' | 'jump'
 type FoxState = 'idle' | 'running' | 'stalking' | 'chasing' | 'pouncing' | 'cooldown'

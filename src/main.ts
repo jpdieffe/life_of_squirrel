@@ -6,6 +6,7 @@ import { Network } from './network'
 import { DebugPanel } from './debug'
 import { Hawk } from './hawk'
 import { Fox } from './fox'
+import { Human } from './human'
 
 const canvas      = document.getElementById('renderCanvas') as HTMLCanvasElement
 const lobbyEl     = document.getElementById('lobby')!
@@ -64,6 +65,7 @@ async function startGame() {
   const remote     = new RemotePlayer(scene)
   const hawk       = new Hawk(scene, world.leaves)
   const fox        = new Fox(scene)
+  const human      = new Human(scene)
   const debugPanel = new DebugPanel(canvas)
   debugPanel.onSwitchCharacter = () => {
     const next = player.getState().char === 'gull' ? 'squirrel' : 'gull'
@@ -141,6 +143,8 @@ async function startGame() {
         if (activeEnemy === 'hawk') hawk.update(dt, player.position, player.health, player.isCrouching)
         else if (activeEnemy === 'fox') fox.update(dt, player.position, player.health, player.isCrouching)
       }
+      // Human NPC always active
+      human.update(dt, player.position, player.health)
 
       // Broadcast enemy positions to joiner
       if (network.isConnected()) {
@@ -150,6 +154,8 @@ async function startGame() {
           foxActive:  fox.isActive,
           fx: fox.posX,  fy: fox.posY,  fz: fox.posZ,  fry: fox.facingAngle,
           foxStalking: fox.isStalking,
+          huX: human.posX, huY: human.posY, huZ: human.posZ, huRY: human.facingAngle,
+          huAnim: human.animName,
         })
       }
     } else {
@@ -160,6 +166,9 @@ async function startGame() {
         else if (es.foxActive && !fox.isActive) showAlert('⚠ A fox is lurking nearby!')
         hawk.applyRemoteState(es.hx, es.hy, es.hz, es.hry, es.hawkActive)
         fox.applyRemoteState(es.fx, es.fy, es.fz, es.fry, es.foxActive, es.foxStalking)
+        if (es.huAnim !== undefined) {
+          human.applyRemoteState(es.huX, es.huY, es.huZ, es.huRY, es.huAnim)
+        }
       }
     }
     // ─────────────────────────────────────────────────────────────────────────

@@ -51,7 +51,9 @@ const FLAP_ANIM_DUR   = 0.22  // seconds the flap anim plays after each flap
 const FLAP_SPEED_RATIO = 2.5  // playback speed multiplier for flap animation
 const GLIDE_GRAVITY   = -2.5  // gravity m/s² while holding space as gull
 const GULL_MOVE_SPEED    = 6      // m/s horizontal for gull on the ground
-const GULL_FLY_SPEED     = 36     // m/s horizontal for gull in the air (6×)
+const GULL_GLIDE_SPEED   = 10     // m/s in the air without flap boost
+const GULL_FLY_SPEED     = 36     // m/s burst speed right after flapping
+const FLAP_THRUST_DUR    = 0.55   // seconds the speed boost lasts after each flap
 const SPRINT_SPEED       = MOVE_SPEED * 4   // 32 m/s while sprinting
 const STAMINA_DRAIN_RATE = 1.0 / 4.0       // fully drained in 4 s of sprinting
 const STAMINA_REGEN_RATE = 1.0 / 3.0       // fully recovered in 3 s (after delay)
@@ -91,9 +93,10 @@ export class Player {
   private currentAnim: AnimState = 'idle'
   private facingY = 0
   private isDead = false
-  private spaceWasDown  = false
-  private flapCooldown  = 0
-  private flapAnimTimer = 0
+  private spaceWasDown   = false
+  private flapCooldown   = 0
+  private flapAnimTimer  = 0
+  private flapThrustTimer = 0   // counts down after each flap; >0 = thrust speed
   private stamina           = 1.0
   private staminaRegenDelay = 0
   private desiredRadius     = 14   // scroll zoom target; actual radius shrinks when looking up
@@ -255,9 +258,10 @@ export class Player {
     if (staminaFill) staminaFill.style.width = `${this.stamina * 100}%`
     if (staminaBar)  staminaBar.style.display = (isSprinting || this.stamina < 1.0) ? 'block' : 'none'
 
+    const gullAirSpeed = this.flapThrustTimer > 0 ? GULL_FLY_SPEED : GULL_GLIDE_SPEED
     const speed = isSneaking ? SNEAK_SPEED
       : isSprinting ? SPRINT_SPEED
-      : this.character === 'gull' ? (this.onGround ? GULL_MOVE_SPEED : GULL_FLY_SPEED)
+      : this.character === 'gull' ? (this.onGround ? GULL_MOVE_SPEED : gullAirSpeed)
       : MOVE_SPEED
 
     this.velocity.x = mx * speed
@@ -267,10 +271,11 @@ export class Player {
     if (this.character === 'gull') {
       // Each space press = flap boost (with cooldown)
       if (spaceDown && !this.spaceWasDown && this.flapCooldown <= 0) {
-        this.velocity.y   += FLAP_BOOST
-        this.flapCooldown  = FLAP_COOLDOWN
-        this.flapAnimTimer = FLAP_ANIM_DUR
-        this.onGround      = false
+        this.velocity.y    += FLAP_BOOST
+        this.flapCooldown   = FLAP_COOLDOWN
+        this.flapAnimTimer  = FLAP_ANIM_DUR
+        this.flapThrustTimer = FLAP_THRUST_DUR
+        this.onGround       = false
         // Restart flap anim at higher speed so each press shows a full wing-beat
         const flapEntry = this.gullEntries['flap']
         if (flapEntry?.group) {
@@ -279,8 +284,9 @@ export class Player {
           flapEntry.group.play(false)
         }
       }
-      this.flapCooldown  = Math.max(0, this.flapCooldown  - dt)
-      this.flapAnimTimer = Math.max(0, this.flapAnimTimer - dt)
+      this.flapCooldown   = Math.max(0, this.flapCooldown   - dt)
+      this.flapAnimTimer  = Math.max(0, this.flapAnimTimer  - dt)
+      this.flapThrustTimer = Math.max(0, this.flapThrustTimer - dt)
       // Holding space = glide (very low gravity)
       this.velocity.y += (spaceDown ? GLIDE_GRAVITY : GRAVITY) * dt
     } else {
