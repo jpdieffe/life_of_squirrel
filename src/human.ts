@@ -11,8 +11,8 @@ import type { HealthSystem } from './health'
 
 // ── Tuning ────────────────────────────────────────────────────────────────────
 const HUMAN_SCALE       = 1.0
-const SPAWN_X           = 38      // near the house
-const SPAWN_Z           = 23      // south side of the house, outdoors
+const SPAWN_X           = 90      // near the house
+const SPAWN_Z           = 53      // south side of the house, outdoors
 const WALK_SPEED        = 3.0     // m/s while walking
 const JOG_SPEED         = 6.5     // m/s while jogging
 const NOTICE_RADIUS     = 9       // m: human first notices the player

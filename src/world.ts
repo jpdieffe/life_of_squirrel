@@ -265,14 +265,14 @@ export class World {
   }
 
   private _buildHouse(scene: Scene, collision: BuildingDef[]) {
-    // House centre, footprint 12 × 10, gound floor H=3.2, 2nd floor H=3.0
-    // Positioned at (38, 0, 38) — NE quadrant, away from tree
-    const HX = 38, HZ = 38         // centre of house footprint
-    const HW = 12, HD = 10         // house width (+X) and depth (+Z)
-    const W = 0.3                   // wall thickness
-    const GH = 3.2                  // ground floor ceiling height
-    const FH = 3.0                  // 2nd floor ceiling height
-    const ROOF_Y = GH + FH          // = 6.2
+    // House is 7× the original scale.
+    // Centre at (90, 0, 90) — far enough from the tree to fit the 84×70m footprint.
+    const HX = 90, HZ = 90          // centre of house footprint
+    const HW = 84, HD = 70           // house width (+X) and depth (+Z)
+    const W  = 2.1                   // wall thickness
+    const GH = 22.4                  // ground floor ceiling height
+    const FH = 21.0                  // 2nd floor ceiling height
+    const ROOF_Y = GH + FH           // = 43.4
 
     // ── Materials ──────────────────────────────────────────────────────────
     const matOf = (name: string, r: number, g: number, b: number): StandardMaterial => {
@@ -280,23 +280,22 @@ export class World {
       m.diffuseColor = new Color3(r, g, b)
       return m
     }
-    const mWall   = matOf('hWall',   0.91, 0.85, 0.74)  // beige plaster
-    const mFloor  = matOf('hFloor',  0.55, 0.38, 0.22)  // medium brown
-    const mRoof   = matOf('hRoof',   0.40, 0.18, 0.10)  // dark terracotta
-    const mDoor   = matOf('hDoor',   0.35, 0.20, 0.07)  // dark wood
-    const mFurn   = matOf('hFurn',   0.42, 0.25, 0.12)  // furniture wood
-    const mBed    = matOf('hBed',    0.85, 0.82, 0.90)  // pale fabric
-    const mCounter= matOf('hCntr',   0.70, 0.70, 0.72)  // kitchen counter
-    const mToilet = matOf('hToilet', 0.95, 0.95, 0.95)  // white ceramic
-    const mBath   = matOf('hBath',   0.90, 0.92, 0.95)  // pale ice bath
-    const mGlass  = matOf('hGlass',  0.55, 0.78, 0.90)  // window glass tint
+    const mWall   = matOf('hWall',   0.91, 0.85, 0.74)
+    const mFloor  = matOf('hFloor',  0.55, 0.38, 0.22)
+    const mRoof   = matOf('hRoof',   0.40, 0.18, 0.10)
+    const mDoor   = matOf('hDoor',   0.35, 0.20, 0.07)
+    const mFurn   = matOf('hFurn',   0.42, 0.25, 0.12)
+    const mBed    = matOf('hBed',    0.85, 0.82, 0.90)
+    const mCounter= matOf('hCntr',   0.70, 0.70, 0.72)
+    const mToilet = matOf('hToilet', 0.95, 0.95, 0.95)
+    const mBath   = matOf('hBath',   0.90, 0.92, 0.95)
+    const mGlass  = matOf('hGlass',  0.55, 0.78, 0.90)
     mGlass.alpha  = 0.35
     mGlass.backFaceCulling = false
-    const mStair  = matOf('hStair',  0.58, 0.43, 0.28)  // stair tread
-    const mRail   = matOf('hRail',   0.35, 0.22, 0.10)  // railing
+    const mStair  = matOf('hStair',  0.58, 0.43, 0.28)
+    const mRail   = matOf('hRail',   0.35, 0.22, 0.10)
 
-    // Helper: create a solid box centred at (cx, cy_bottom+h/2, cz)
-    // cy is the BOTTOM surface Y
+    // box helper: cx/cyBottom/cz are the centre-x, bottom-y, centre-z
     const box = (
       name: string, cx: number, cyBottom: number, cz: number,
       w: number, h: number, d: number,
@@ -308,139 +307,123 @@ export class World {
       return m
     }
 
-    // ── Ground floor ────────────────────────────────────────────────────────
-    // Ground floor slab (visual only, player walks on ground y=0)
+    // ── Ground floor slab (visual) ──────────────────────────────────────────
     box('hGroundSlab', HX, -0.05, HZ, HW, 0.1, HD, mFloor)
 
-    // --- Ground-floor WALLS (each wall segment is a separate box so windows & door create gaps)
-    // Wall thickness W=0.3; walls are ground-anchored (y=0) so collision blocks sideways
+    // Derived edge positions
+    const SZ = HZ - HD / 2   // south wall Z
+    const NZ = HZ + HD / 2   // north wall Z
+    const WX = HX - HW / 2   // west wall X
+    const EX = HX + HW / 2   // east wall X
 
-    // South wall (z = HZ - HD/2)  — front wall with door + one window
-    // Full south wall = x from -6 to +6 relative to HX.
-    // Door: 1.4m wide, centred at HX+2.5, from x=1.8 to x=3.2 relative
-    // Window: 1.2m wide at x=-3.0 relative
-    const SZ = HZ - HD / 2
-    // Left panel (x: -6 to -3.6)  2.4m wide
-    box('hSW_L', HX - 4.8, 0, SZ, 2.4, GH, W, mWall)
-    collision.push({ x: HX - 4.8, z: SZ, width: 2.4, depth: W, height: GH })
-    // Window panel above opening (x: -3.6 to -2.4), low section (y=0 to 1.0)
-    box('hSW_Wlo', HX - 3.0, 0, SZ, 1.2, 1.0, W, mWall)
-    collision.push({ x: HX - 3.0, z: SZ, width: 1.2, depth: W, height: 1.0 })
-    // Window panel above opening, top section (y=2.0 to GH)
-    box('hSW_Whi', HX - 3.0, 2.0, SZ, 1.2, GH - 2.0, W, mWall)
-    collision.push({ x: HX - 3.0, z: SZ, y: 2.0, width: 1.2, depth: W, height: GH - 2.0 })
-    // Window glass  (gap y=1.0..2.0)
-    box('hSW_glass', HX - 3.0, 1.0, SZ, 1.2, 1.0, 0.05, mGlass)
-    // Middle panel (x: -2.4 to +0.8) — solid, 3.2m
-    box('hSW_M', HX - 0.8, 0, SZ, 3.2, GH, W, mWall)
-    collision.push({ x: HX - 0.8, z: SZ, width: 3.2, depth: W, height: GH })
-    // Door opening gap (x: +0.8 to +2.2 = 1.4m wide); door LOW panel only (frame)
-    //   Door frame top (y = 2.2 to GH)
-    box('hSW_Dhi', HX + 1.5, 2.2, SZ, 1.4, GH - 2.2, W, mWall)
-    collision.push({ x: HX + 1.5, z: SZ, y: 2.2, width: 1.4, depth: W, height: GH - 2.2 })
-    // Door itself (closed, 2D panel inset)
-    box('hDoorPanel', HX + 1.5, 0, SZ + 0.15, 1.3, 2.2, 0.06, mDoor)
-    // Right panel (x: +2.2 to +6) — 3.8m
-    box('hSW_R', HX + 4.1, 0, SZ, 3.8, GH, W, mWall)
-    collision.push({ x: HX + 4.1, z: SZ, width: 3.8, depth: W, height: GH })
+    // ── Ground-floor SOUTH WALL — door (9.8m wide) + one open window (8.4m) ──
+    // Panels split around door at x+10.5..+20.3 relative to HX
+    // Window at x=-21..−12.6 relative to HX
+    box('hSW_L',  HX - 33.6, 0, SZ, 16.8, GH, W, mWall)
+    collision.push({ x: HX - 33.6, z: SZ, width: 16.8, depth: W, height: GH })
+    // window sill (low, y: 0..7)
+    box('hSW_Wlo', HX - 16.8, 0, SZ, 8.4, 7.0, W, mWall)
+    collision.push({ x: HX - 16.8, z: SZ, width: 8.4, depth: W, height: 7.0 })
+    // window lintel (high, y: 14..GH)
+    box('hSW_Whi', HX - 16.8, 14.0, SZ, 8.4, GH - 14.0, W, mWall)
+    collision.push({ x: HX - 16.8, z: SZ, y: 14.0, width: 8.4, depth: W, height: GH - 14.0 })
+    // window glass (gap y:7..14)
+    box('hSW_glass', HX - 16.8, 7.0, SZ, 8.4, 7.0, 0.35, mGlass)
+    // middle panel between window and door
+    box('hSW_M',  HX - 5.6, 0, SZ, 22.4, GH, W, mWall)
+    collision.push({ x: HX - 5.6, z: SZ, width: 22.4, depth: W, height: GH })
+    // door frame top (y: 15.4..GH)
+    const DOOR_H = 15.4
+    box('hSW_Dhi', HX + 10.5, DOOR_H, SZ, 9.8, GH - DOOR_H, W, mWall)
+    collision.push({ x: HX + 10.5, z: SZ, y: DOOR_H, width: 9.8, depth: W, height: GH - DOOR_H })
+    // door panel
+    box('hDoorPanel', HX + 10.5, 0, SZ + 1.05, 9.1, DOOR_H, 0.42, mDoor)
+    // right panel
+    box('hSW_R',  HX + 28.7, 0, SZ, 26.6, GH, W, mWall)
+    collision.push({ x: HX + 28.7, z: SZ, width: 26.6, depth: W, height: GH })
 
-    // North wall (z = HZ + HD/2) — back wall with two open windows
-    const NZ = HZ + HD / 2
-    // Left panel (-6 to -3.0)  3m
-    box('hNW_L', HX - 4.5, 0, NZ, 3.0, GH, W, mWall)
-    collision.push({ x: HX - 4.5, z: NZ, width: 3.0, depth: W, height: GH })
-    // Window 1 low/hi  (x: -3.0 to -1.8 = 1.2m)
-    box('hNW_W1lo', HX - 2.4, 0, NZ, 1.2, 1.0, W, mWall)
-    collision.push({ x: HX - 2.4, z: NZ, width: 1.2, depth: W, height: 1.0 })
-    box('hNW_W1hi', HX - 2.4, 2.0, NZ, 1.2, GH - 2.0, W, mWall)
-    collision.push({ x: HX - 2.4, z: NZ, y: 2.0, width: 1.2, depth: W, height: GH - 2.0 })
-    box('hNW_g1', HX - 2.4, 1.0, NZ, 1.2, 1.0, 0.05, mGlass)
-    // Middle panel (-1.8 to +1.8) 3.6m
-    box('hNW_M', HX, 0, NZ, 3.6, GH, W, mWall)
-    collision.push({ x: HX, z: NZ, width: 3.6, depth: W, height: GH })
-    // Window 2  (x: +1.8 to +3.0 = 1.2m)
-    box('hNW_W2lo', HX + 2.4, 0, NZ, 1.2, 1.0, W, mWall)
-    collision.push({ x: HX + 2.4, z: NZ, width: 1.2, depth: W, height: 1.0 })
-    box('hNW_W2hi', HX + 2.4, 2.0, NZ, 1.2, GH - 2.0, W, mWall)
-    collision.push({ x: HX + 2.4, z: NZ, y: 2.0, width: 1.2, depth: W, height: GH - 2.0 })
-    box('hNW_g2', HX + 2.4, 1.0, NZ, 1.2, 1.0, 0.05, mGlass)
-    // Right panel (+3.0 to +6) 3.0m
-    box('hNW_R', HX + 4.5, 0, NZ, 3.0, GH, W, mWall)
-    collision.push({ x: HX + 4.5, z: NZ, width: 3.0, depth: W, height: GH })
+    // ── Ground-floor NORTH WALL — two open windows ──────────────────────────
+    box('hNW_L',  HX - 31.5, 0, NZ, 21.0, GH, W, mWall)
+    collision.push({ x: HX - 31.5, z: NZ, width: 21.0, depth: W, height: GH })
+    box('hNW_W1lo', HX - 16.8, 0, NZ, 8.4, 7.0, W, mWall)
+    collision.push({ x: HX - 16.8, z: NZ, width: 8.4, depth: W, height: 7.0 })
+    box('hNW_W1hi', HX - 16.8, 14.0, NZ, 8.4, GH - 14.0, W, mWall)
+    collision.push({ x: HX - 16.8, z: NZ, y: 14.0, width: 8.4, depth: W, height: GH - 14.0 })
+    box('hNW_g1', HX - 16.8, 7.0, NZ, 8.4, 7.0, 0.35, mGlass)
+    box('hNW_M',  HX, 0, NZ, 25.2, GH, W, mWall)
+    collision.push({ x: HX, z: NZ, width: 25.2, depth: W, height: GH })
+    box('hNW_W2lo', HX + 16.8, 0, NZ, 8.4, 7.0, W, mWall)
+    collision.push({ x: HX + 16.8, z: NZ, width: 8.4, depth: W, height: 7.0 })
+    box('hNW_W2hi', HX + 16.8, 14.0, NZ, 8.4, GH - 14.0, W, mWall)
+    collision.push({ x: HX + 16.8, z: NZ, y: 14.0, width: 8.4, depth: W, height: GH - 14.0 })
+    box('hNW_g2', HX + 16.8, 7.0, NZ, 8.4, 7.0, 0.35, mGlass)
+    box('hNW_R',  HX + 31.5, 0, NZ, 21.0, GH, W, mWall)
+    collision.push({ x: HX + 31.5, z: NZ, width: 21.0, depth: W, height: GH })
 
-    // West wall (x = HX - HW/2) — side wall with one open window
-    const WX = HX - HW / 2
-    // Bottom section (z: -5 to +5 = 10m), split for window
-    // South part (z: -5 to -2) 3m
-    box('hWW_S', WX, 0, HZ - 3.5, W, GH, 3.0, mWall)
-    collision.push({ x: WX, z: HZ - 3.5, width: W, depth: 3.0, height: GH })
-    // Window (z: -2 to -0.8 = 1.2m)
-    box('hWW_Wlo', WX, 0, HZ - 1.4, W, 1.0, 1.2, mWall)
-    collision.push({ x: WX, z: HZ - 1.4, width: W, depth: 1.2, height: 1.0 })
-    box('hWW_Whi', WX, 2.0, HZ - 1.4, W, GH - 2.0, 1.2, mWall)
-    collision.push({ x: WX, z: HZ - 1.4, y: 2.0, width: W, depth: 1.2, height: GH - 2.0 })
-    box('hWW_glass', WX, 1.0, HZ - 1.4, 0.05, 1.0, 1.2, mGlass)
-    // North part (z: -0.8 to +5) 5.8m
-    box('hWW_N', WX, 0, HZ + 2.1, W, GH, 5.8, mWall)
-    collision.push({ x: WX, z: HZ + 2.1, width: W, depth: 5.8, height: GH })
+    // ── Ground-floor WEST WALL — one open window ───────────────────────────
+    box('hWW_S',  WX, 0, HZ - 24.5, W, GH, 21.0, mWall)
+    collision.push({ x: WX, z: HZ - 24.5, width: W, depth: 21.0, height: GH })
+    box('hWW_Wlo', WX, 0, HZ - 9.8, W, 7.0, 8.4, mWall)
+    collision.push({ x: WX, z: HZ - 9.8, width: W, depth: 8.4, height: 7.0 })
+    box('hWW_Whi', WX, 14.0, HZ - 9.8, W, GH - 14.0, 8.4, mWall)
+    collision.push({ x: WX, z: HZ - 9.8, y: 14.0, width: W, depth: 8.4, height: GH - 14.0 })
+    box('hWW_glass', WX, 7.0, HZ - 9.8, 0.35, 7.0, 8.4, mGlass)
+    box('hWW_N',  WX, 0, HZ + 14.7, W, GH, 40.6, mWall)
+    collision.push({ x: WX, z: HZ + 14.7, width: W, depth: 40.6, height: GH })
 
-    // East wall (x = HX + HW/2) — side wall with one open window
-    const EX = HX + HW / 2
-    box('hEW_S', EX, 0, HZ - 3.5, W, GH, 3.0, mWall)
-    collision.push({ x: EX, z: HZ - 3.5, width: W, depth: 3.0, height: GH })
-    box('hEW_Wlo', EX, 0, HZ - 1.4, W, 1.0, 1.2, mWall)
-    collision.push({ x: EX, z: HZ - 1.4, width: W, depth: 1.2, height: 1.0 })
-    box('hEW_Whi', EX, 2.0, HZ - 1.4, W, GH - 2.0, 1.2, mWall)
-    collision.push({ x: EX, z: HZ - 1.4, y: 2.0, width: W, depth: 1.2, height: GH - 2.0 })
-    box('hEW_glass', EX, 1.0, HZ - 1.4, 0.05, 1.0, 1.2, mGlass)
-    box('hEW_N', EX, 0, HZ + 2.1, W, GH, 5.8, mWall)
-    collision.push({ x: EX, z: HZ + 2.1, width: W, depth: 5.8, height: GH })
+    // ── Ground-floor EAST WALL — one open window ───────────────────────────
+    box('hEW_S',  EX, 0, HZ - 24.5, W, GH, 21.0, mWall)
+    collision.push({ x: EX, z: HZ - 24.5, width: W, depth: 21.0, height: GH })
+    box('hEW_Wlo', EX, 0, HZ - 9.8, W, 7.0, 8.4, mWall)
+    collision.push({ x: EX, z: HZ - 9.8, width: W, depth: 8.4, height: 7.0 })
+    box('hEW_Whi', EX, 14.0, HZ - 9.8, W, GH - 14.0, 8.4, mWall)
+    collision.push({ x: EX, z: HZ - 9.8, y: 14.0, width: W, depth: 8.4, height: GH - 14.0 })
+    box('hEW_glass', EX, 7.0, HZ - 9.8, 0.35, 7.0, 8.4, mGlass)
+    box('hEW_N',  EX, 0, HZ + 14.7, W, GH, 40.6, mWall)
+    collision.push({ x: EX, z: HZ + 14.7, width: W, depth: 40.6, height: GH })
 
-    // Interior ground-floor partition wall: bathroom/kitchen divider
-    // Runs E-W at z = HZ + 1.0, separating bathroom (north) from living/kitchen (south)
-    // Leaves a 1.5m doorway in the middle (centred at HX)
-    const PZ1 = HZ + 1.0
-    box('hPart1_W', HX - 3.75, 0, PZ1, 3.5, GH, W, mWall)   // west half
-    collision.push({ x: HX - 3.75, z: PZ1, width: 3.5, depth: W, height: GH })
-    box('hPart1_E', HX + 3.75, 0, PZ1, 3.5, GH, W, mWall)   // east half
-    collision.push({ x: HX + 3.75, z: PZ1, width: 3.5, depth: W, height: GH })
-    // doorway frame top
-    box('hPart1_T', HX, 2.2, PZ1, 1.5, GH - 2.2, W, mWall)
-    collision.push({ x: HX, z: PZ1, y: 2.2, width: 1.5, depth: W, height: GH - 2.2 })
+    // ── Interior partition (bathroom/kitchen divider) at z = HZ + 7 ─────────
+    const PZ1 = HZ + 7.0
+    box('hPart1_W', HX - 26.25, 0, PZ1, 24.5, GH, W, mWall)
+    collision.push({ x: HX - 26.25, z: PZ1, width: 24.5, depth: W, height: GH })
+    box('hPart1_E', HX + 26.25, 0, PZ1, 24.5, GH, W, mWall)
+    collision.push({ x: HX + 26.25, z: PZ1, width: 24.5, depth: W, height: GH })
+    box('hPart1_T', HX, 15.4, PZ1, 10.5, GH - 15.4, W, mWall)  // doorway top
+    collision.push({ x: HX, z: PZ1, y: 15.4, width: 10.5, depth: W, height: GH - 15.4 })
 
-    // ── 2nd floor slab (one-way platform) ──────────────────────────────────
-    const F2Y = GH  // 3.2 — bottom of 2nd floor slab
-    const SLAB_H = 0.3
+    // ── 2nd-floor SLAB (one-way platform) ───────────────────────────────────
+    const F2Y    = GH         // 22.4 — bottom of slab
+    const SLAB_H = 2.1        // slab thickness (0.3 × 7)
     box('h2ndFloor', HX, F2Y, HZ, HW, SLAB_H, HD, mFloor)
     collision.push({ x: HX, z: HZ, y: F2Y, width: HW, depth: HD, height: SLAB_H })
 
-    // 2nd-floor ceiling (visual only, gives the roof a soffit)
-    box('hCeiling', HX, ROOF_Y, HZ, HW, 0.15, HD, mFloor)
+    // Ceiling soffit (visual)
+    box('hCeiling', HX, ROOF_Y, HZ, HW, 1.05, HD, mFloor)
 
-    // ── 2nd-floor WALLS ─────────────────────────────────────────────────────
-    const F2bot = F2Y + SLAB_H   // 3.5 — bottom of 2nd-floor walls
+    // ── 2nd-floor WALLS ──────────────────────────────────────────────────────
+    const F2bot = F2Y + SLAB_H   // 24.5 — floor surface of 2nd storey
 
-    // South wall 2nd floor (with one open window)
-    box('h2SW_L', HX - 4.0, F2bot, SZ, 4.0, FH - SLAB_H, W, mWall)
-    collision.push({ x: HX - 4.0, z: SZ, y: F2bot, width: 4.0, depth: W, height: FH - SLAB_H })
-    box('h2SW_Wlo', HX + 1.0, F2bot, SZ, 2.0, 0.8, W, mWall)
-    collision.push({ x: HX + 1.0, z: SZ, y: F2bot, width: 2.0, depth: W, height: 0.8 })
-    box('h2SW_Whi', HX + 1.0, F2bot + 1.8, SZ, 2.0, FH - SLAB_H - 1.8, W, mWall)
-    collision.push({ x: HX + 1.0, z: SZ, y: F2bot + 1.8, width: 2.0, depth: W, height: FH - SLAB_H - 1.8 })
-    box('h2SW_glass', HX + 1.0, F2bot + 0.8, SZ, 2.0, 1.0, 0.05, mGlass)
-    box('h2SW_R', HX + 4.5, F2bot, SZ, 3.0, FH - SLAB_H, W, mWall)
-    collision.push({ x: HX + 4.5, z: SZ, y: F2bot, width: 3.0, depth: W, height: FH - SLAB_H })
+    // South wall 2nd floor — one open window
+    box('h2SW_L',  HX - 28.0, F2bot, SZ, 28.0, FH - SLAB_H, W, mWall)
+    collision.push({ x: HX - 28.0, z: SZ, y: F2bot, width: 28.0, depth: W, height: FH - SLAB_H })
+    box('h2SW_Wlo', HX + 7.0, F2bot, SZ, 14.0, 5.6, W, mWall)
+    collision.push({ x: HX + 7.0, z: SZ, y: F2bot, width: 14.0, depth: W, height: 5.6 })
+    box('h2SW_Whi', HX + 7.0, F2bot + 12.6, SZ, 14.0, FH - SLAB_H - 12.6, W, mWall)
+    collision.push({ x: HX + 7.0, z: SZ, y: F2bot + 12.6, width: 14.0, depth: W, height: FH - SLAB_H - 12.6 })
+    box('h2SW_glass', HX + 7.0, F2bot + 5.6, SZ, 14.0, 7.0, 0.35, mGlass)
+    box('h2SW_R',  HX + 31.5, F2bot, SZ, 21.0, FH - SLAB_H, W, mWall)
+    collision.push({ x: HX + 31.5, z: SZ, y: F2bot, width: 21.0, depth: W, height: FH - SLAB_H })
 
-    // North wall 2nd floor
-    box('h2NW_L', HX - 4.5, F2bot, NZ, 3.0, FH - SLAB_H, W, mWall)
-    collision.push({ x: HX - 4.5, z: NZ, y: F2bot, width: 3.0, depth: W, height: FH - SLAB_H })
-    box('h2NW_Wlo', HX - 1.0, F2bot, NZ, 2.0, 0.8, W, mWall)
-    collision.push({ x: HX - 1.0, z: NZ, y: F2bot, width: 2.0, depth: W, height: 0.8 })
-    box('h2NW_Whi', HX - 1.0, F2bot + 1.8, NZ, 2.0, FH - SLAB_H - 1.8, W, mWall)
-    collision.push({ x: HX - 1.0, z: NZ, y: F2bot + 1.8, width: 2.0, depth: W, height: FH - SLAB_H - 1.8 })
-    box('h2NW_glass', HX - 1.0, F2bot + 0.8, NZ, 2.0, 1.0, 0.05, mGlass)
-    box('h2NW_R', HX + 4.5, F2bot, NZ, 3.0, FH - SLAB_H, W, mWall)
-    collision.push({ x: HX + 4.5, z: NZ, y: F2bot, width: 3.0, depth: W, height: FH - SLAB_H })
+    // North wall 2nd floor — one open window
+    box('h2NW_L',  HX - 31.5, F2bot, NZ, 21.0, FH - SLAB_H, W, mWall)
+    collision.push({ x: HX - 31.5, z: NZ, y: F2bot, width: 21.0, depth: W, height: FH - SLAB_H })
+    box('h2NW_Wlo', HX - 7.0, F2bot, NZ, 14.0, 5.6, W, mWall)
+    collision.push({ x: HX - 7.0, z: NZ, y: F2bot, width: 14.0, depth: W, height: 5.6 })
+    box('h2NW_Whi', HX - 7.0, F2bot + 12.6, NZ, 14.0, FH - SLAB_H - 12.6, W, mWall)
+    collision.push({ x: HX - 7.0, z: NZ, y: F2bot + 12.6, width: 14.0, depth: W, height: FH - SLAB_H - 12.6 })
+    box('h2NW_glass', HX - 7.0, F2bot + 5.6, NZ, 14.0, 7.0, 0.35, mGlass)
+    box('h2NW_R',  HX + 31.5, F2bot, NZ, 21.0, FH - SLAB_H, W, mWall)
+    collision.push({ x: HX + 31.5, z: NZ, y: F2bot, width: 21.0, depth: W, height: FH - SLAB_H })
 
     // West wall 2nd floor (solid)
     box('h2WW', WX, F2bot, HZ, W, FH - SLAB_H, HD, mWall)
@@ -450,110 +433,83 @@ export class World {
     box('h2EW', EX, F2bot, HZ, W, FH - SLAB_H, HD, mWall)
     collision.push({ x: EX, z: HZ, y: F2bot, width: W, depth: HD, height: FH - SLAB_H })
 
-    // Interior 2nd-floor partition: bedroom divider (runs N-S, x=HX, 1.5m door gap)
+    // 2nd-floor partition (bedroom divider, N-S, at x=HX, 10.5m doorway)
     const PX2 = HX
-    // South half of partition (z: SZ+W to HZ-0.75)
-    box('h2Part_S', PX2, F2bot, HZ - 2.625 + W / 2, W, FH - SLAB_H, HD / 2 - 1.5, mWall)
-    collision.push({ x: PX2, z: HZ - 2.625, y: F2bot, width: W, depth: HD / 2 - 1.5, height: FH - SLAB_H })
-    // North half of partition (z: HZ+0.75 to NZ)
-    box('h2Part_N', PX2, F2bot, HZ + 2.625 - W / 2, W, FH - SLAB_H, HD / 2 - 1.5, mWall)
-    collision.push({ x: PX2, z: HZ + 2.625, y: F2bot, width: W, depth: HD / 2 - 1.5, height: FH - SLAB_H })
-    // Door frame top
-    box('h2Part_T', PX2, F2bot + 2.2, HZ, W, FH - SLAB_H - 2.2, 1.5, mWall)
-    collision.push({ x: PX2, z: HZ, y: F2bot + 2.2, width: W, depth: 1.5, height: FH - SLAB_H - 2.2 })
+    box('h2Part_S', PX2, F2bot, HZ - 18.375, W, FH - SLAB_H, HD / 2 - 10.5, mWall)
+    collision.push({ x: PX2, z: HZ - 18.375, y: F2bot, width: W, depth: HD / 2 - 10.5, height: FH - SLAB_H })
+    box('h2Part_N', PX2, F2bot, HZ + 18.375, W, FH - SLAB_H, HD / 2 - 10.5, mWall)
+    collision.push({ x: PX2, z: HZ + 18.375, y: F2bot, width: W, depth: HD / 2 - 10.5, height: FH - SLAB_H })
+    box('h2Part_T', PX2, F2bot + 15.4, HZ, W, FH - SLAB_H - 15.4, 10.5, mWall)
+    collision.push({ x: PX2, z: HZ, y: F2bot + 15.4, width: W, depth: 10.5, height: FH - SLAB_H - 15.4 })
 
-    // ── Stairs ──────────────────────────────────────────────────────────────
-    // Located inside on the east side, running N→S from z≈HZ+3.5 down to z≈HZ-0.5
-    // 8 steps, each 0.4m tall and 0.9m deep, rising from y=0 to y=F2Y+SLAB_H
+    // ── Stairs (east interior, N→S, 8 wide steps) ───────────────────────────
     const NSTEPS = 8
-    const stepH = (F2Y + SLAB_H) / NSTEPS   // ~0.4375
-    const stepD = 0.9
-    const stairX = HX + 4.2  // near east wall interior
+    const stepH  = (F2Y + SLAB_H) / NSTEPS   // ~3.06
+    const stepD  = 6.3                         // 0.9 × 7
+    const stairX = HX + 29.4                  // near east interior wall
     for (let s = 0; s < NSTEPS; s++) {
-      const sz = HZ + 3.2 - s * stepD  // north to south
+      const sz = HZ + 22.4 - s * stepD
       const sy = s * stepH
-      box(`hStep_${s}`, stairX, sy, sz, 1.5, stepH, stepD, mStair)
-      collision.push({ x: stairX, z: sz, y: sy, width: 1.5, depth: stepD, height: stepH })
+      box(`hStep_${s}`, stairX, sy, sz, 10.5, stepH, stepD, mStair)
+      collision.push({ x: stairX, z: sz, y: sy, width: 10.5, depth: stepD, height: stepH })
     }
-    // Stair railing (visual only)
-    box('hRail_stair', stairX + 0.82, 0, HZ + 1.7, 0.06, F2Y + SLAB_H + 0.9, 0.06, mRail)
-    box('hRailTop', stairX + 0.82, F2Y + SLAB_H + 0.9, HZ + 1.7, 0.06, 0.06, NSTEPS * stepD, mRail)
+    // Railing (visual)
+    box('hRail_stair', stairX + 5.74, 0, HZ + 11.9, 0.42, F2Y + SLAB_H + 6.3, 0.42, mRail)
+    box('hRailTop',    stairX + 5.74, F2Y + SLAB_H + 6.3, HZ + 11.9, 0.42, 0.42, NSTEPS * stepD, mRail)
 
-    // Opening in 2nd-floor slab above stairs (visual — no slab mesh placed there)
-    // We carve it by replacing the full slab with two halves that leave the stair gap
-    // (The slab mesh was already created as one piece for simplicity; we just don't collision-block the stair column's top)
-
-    // ── Roof (gabled) ───────────────────────────────────────────────────────
-    // Two slanted halves meeting at ridge, purely visual
-    const roofW = HW + 0.6   // overhang
-    const roofD = HD / 2 + 0.4
-    const ridgeH = 1.8
+    // ── Roof (gabled, visual only) ───────────────────────────────────────────
+    const roofW     = HW + 4.2
+    const ridgeH    = 12.6
     const roofPitch = Math.atan2(ridgeH, HD / 2)
-    const roofSlabH = Math.sqrt(ridgeH * ridgeH + (HD / 2) * (HD / 2)) // hypotenuse depth
+    const roofSlabH = Math.sqrt(ridgeH * ridgeH + (HD / 2) * (HD / 2))
 
-    const roofN = MeshBuilder.CreateBox('hRoofN', { width: roofW, height: 0.25, depth: roofSlabH + 0.05 }, scene)
+    const roofN = MeshBuilder.CreateBox('hRoofN', { width: roofW, height: 1.75, depth: roofSlabH + 0.35 }, scene)
     roofN.material = mRoof
     roofN.rotation.x = -roofPitch
     roofN.position.set(HX, ROOF_Y + ridgeH / 2, HZ + HD / 4)
 
-    const roofS = MeshBuilder.CreateBox('hRoofS', { width: roofW, height: 0.25, depth: roofSlabH + 0.05 }, scene)
+    const roofS = MeshBuilder.CreateBox('hRoofS', { width: roofW, height: 1.75, depth: roofSlabH + 0.35 }, scene)
     roofS.material = mRoof
     roofS.rotation.x = roofPitch
     roofS.position.set(HX, ROOF_Y + ridgeH / 2, HZ - HD / 4)
 
-    // Gable end triangles (west + east)
-    const gableH = ridgeH + 0.1
+    const gableH = ridgeH + 0.7
     const gableTri = (name: string, gx: number) => {
-      // Simple thin box approximation of triangle using scaling
-      const g = MeshBuilder.CreateBox(name, { width: 0.25, height: gableH, depth: HD }, scene)
+      const g = MeshBuilder.CreateBox(name, { width: 1.75, height: gableH, depth: HD }, scene)
       g.material = mWall
-      g.position.set(gx, ROOF_Y + gableH / 2 - 0.05, HZ)
-      // taper: just a box as gable filler — acceptable approximation
+      g.position.set(gx, ROOF_Y + gableH / 2 - 0.35, HZ)
     }
     gableTri('hGableW', WX)
     gableTri('hGableE', EX)
 
-    // ── Ground-floor FURNITURE ──────────────────────────────────────────────
-
-    // Kitchen (east side of southern half, z: SZ..PZ1, x: HX+1..EX)
-    // Counter along east wall
-    box('hKCounter_E', EX - 0.5, 0, HZ - 1.5, 0.8, 0.9, 3.5, mCounter)
-    // Counter along south wall (kitchen corner)
-    box('hKCounter_S', HX + 3.5, 0, SZ + 0.6, 2.0, 0.9, 0.8, mCounter)
-    // Table in living area (west of kitchen)
-    box('hTable', HX - 2.5, 0, HZ - 1.5, 1.6, 0.75, 0.9, mFurn)
-    // Chairs around table
-    box('hChair1', HX - 1.4, 0, HZ - 1.5, 0.5, 0.45, 0.5, mFurn)
-    box('hChair2', HX - 3.6, 0, HZ - 1.5, 0.5, 0.45, 0.5, mFurn)
-    box('hChair3', HX - 2.5, 0, HZ - 0.8, 0.5, 0.45, 0.5, mFurn)
-
-    // Bathroom (north zone: z: PZ1..NZ)
-    // Toilet
-    box('hToiletBase', HX - 5.2, 0, HZ + 3.5, 0.6, 0.42, 0.7, mToilet)
-    box('hToiletTank', HX - 5.2, 0.42, HZ + 3.8, 0.6, 0.35, 0.22, mToilet)
-    // Bathtub
-    const tubX = HX + 4.0, tubZ = HZ + 3.5
-    box('hBath_base', tubX, 0, tubZ, 1.8, 0.5, 0.85, mBath)
-    // Sink cabinet
-    box('hSink', HX - 5.2, 0, HZ + 1.8, 0.5, 0.85, 0.5, mCounter)
+    // ── Ground-floor FURNITURE (all dimensions × 7) ─────────────────────────
+    // Kitchen — east side of south half
+    box('hKCounter_E', EX - 3.5, 0, HZ - 10.5, 5.6, 6.3, 24.5, mCounter)
+    box('hKCounter_S', HX + 24.5, 0, SZ + 4.2, 14.0, 6.3, 5.6, mCounter)
+    // Table + chairs in living area
+    box('hTable',  HX - 17.5, 0, HZ - 10.5, 11.2, 5.25, 6.3,  mFurn)
+    box('hChair1', HX - 9.8,  0, HZ - 10.5, 3.5,  3.15, 3.5,  mFurn)
+    box('hChair2', HX - 25.2, 0, HZ - 10.5, 3.5,  3.15, 3.5,  mFurn)
+    box('hChair3', HX - 17.5, 0, HZ - 5.6,  3.5,  3.15, 3.5,  mFurn)
+    // Bathroom
+    box('hToiletBase', HX - 36.4, 0, HZ + 24.5, 4.2, 2.94, 4.9, mToilet)
+    box('hToiletTank', HX - 36.4, 2.94, HZ + 26.6, 4.2, 2.45, 1.54, mToilet)
+    box('hBath_base',  HX + 28.0, 0, HZ + 24.5,  12.6, 3.5, 5.95, mBath)
+    box('hSink',       HX - 36.4, 0, HZ + 12.6,  3.5, 5.95, 3.5,  mCounter)
 
     // ── 2nd-floor FURNITURE ─────────────────────────────────────────────────
-    const F2fl = F2Y + SLAB_H   // 3.5 — floor surface of 2nd storey
+    const F2fl = F2Y + SLAB_H  // 24.5
 
-    // West bedroom (x: WX .. PX2, z: SZ..NZ)
-    // Double bed
-    box('hBed1', HX - 3.5, F2fl, HZ + 1.0, 2.2, 0.55, 1.6, mBed)
-    box('hBed1head', HX - 4.4, F2fl, HZ + 1.0, 0.2, 0.9, 1.6, mFurn)
-    // Wardrobe
-    box('hWard1', HX - 4.8, F2fl, HZ - 3.5, 0.6, 2.0, 2.0, mFurn)
-    // Bedside table
-    box('hNight1', HX - 2.3, F2fl, HZ + 1.8, 0.5, 0.6, 0.5, mFurn)
-
-    // East bedroom (x: PX2 .. EX, z: SZ..NZ)
-    box('hBed2', HX + 3.5, F2fl, HZ + 1.0, 2.2, 0.55, 1.6, mBed)
-    box('hBed2head', HX + 4.4, F2fl, HZ + 1.0, 0.2, 0.9, 1.6, mFurn)
-    box('hWard2', HX + 4.8, F2fl, HZ - 3.5, 0.6, 2.0, 2.0, mFurn)
-    box('hNight2', HX + 2.3, F2fl, HZ + 1.8, 0.5, 0.6, 0.5, mFurn)
+    // West bedroom
+    box('hBed1',     HX - 24.5, F2fl, HZ + 7.0,  15.4, 3.85, 11.2, mBed)
+    box('hBed1head', HX - 30.8, F2fl, HZ + 7.0,  1.4,  6.3,  11.2, mFurn)
+    box('hWard1',    HX - 33.6, F2fl, HZ - 24.5, 4.2,  14.0, 14.0, mFurn)
+    box('hNight1',   HX - 16.1, F2fl, HZ + 12.6, 3.5,  4.2,  3.5,  mFurn)
+    // East bedroom
+    box('hBed2',     HX + 24.5, F2fl, HZ + 7.0,  15.4, 3.85, 11.2, mBed)
+    box('hBed2head', HX + 30.8, F2fl, HZ + 7.0,  1.4,  6.3,  11.2, mFurn)
+    box('hWard2',    HX + 33.6, F2fl, HZ - 24.5, 4.2,  14.0, 14.0, mFurn)
+    box('hNight2',   HX + 16.1, F2fl, HZ + 12.6, 3.5,  4.2,  3.5,  mFurn)
   }
 
   /** Call every frame with player feet position and camera world position */

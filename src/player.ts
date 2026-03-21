@@ -411,12 +411,19 @@ export class Player {
 
       if (overlapX <= 0 || overlapY <= 0 || overlapZ <= 0) continue
 
-      // Floating platforms (baseY > 0) are one-way: land on top when descending
+      // Floating platforms (baseY > 0) are one-way:
+      //   - land on top when descending through the slab
+      //   - bump head on underside when jumping up into the slab
       if (baseY > 0.1) {
-        if (this.velocity.y < 0) {
+        if (this.velocity.y < 0 && this.position.y >= baseY - 0.05) {
+          // Player fell onto the platform from above
           this.position.y = topY
           this.velocity.y = 0
           this.onGround = true
+        } else if (this.velocity.y > 0 && this.position.y + PLAYER_HEIGHT > baseY && this.position.y < baseY) {
+          // Player's head bumped the underside while jumping up — kill upward velocity
+          this.position.y = baseY - PLAYER_HEIGHT
+          this.velocity.y = 0
         }
         continue
       }
