@@ -71,7 +71,7 @@ async function startGame() {
     const dt = Math.min(engine.getDeltaTime() / 1000, 0.05)
 
     player.update(dt)
-    hawk.update(dt, player.position, player.health)
+    hawk.update(dt, player.position, player.health, player.isCrouching)
     world.updateLeafFade(player.position, player.camera.position)
 
     sendTimer += dt

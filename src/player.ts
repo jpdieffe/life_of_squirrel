@@ -49,8 +49,12 @@ const FLAP_COOLDOWN   = 0.22  // seconds between flap boosts
 const FLAP_ANIM_DUR   = 0.22  // seconds the flap anim plays after each flap
 const FLAP_SPEED_RATIO = 2.5  // playback speed multiplier for flap animation
 const GLIDE_GRAVITY   = -2.5  // gravity m/s² while holding space as gull
-const GULL_MOVE_SPEED = 6     // m/s horizontal for gull on the ground
-const GULL_FLY_SPEED  = 18    // m/s horizontal for gull in the air (3×)
+const GULL_MOVE_SPEED    = 6      // m/s horizontal for gull on the ground
+const GULL_FLY_SPEED     = 36     // m/s horizontal for gull in the air (6×)
+const SPRINT_SPEED       = MOVE_SPEED * 2   // 16 m/s while sprinting
+const STAMINA_DRAIN_RATE = 1.0 / 4.0       // fully drained in 4 s of sprinting
+const STAMINA_REGEN_RATE = 1.0 / 3.0       // fully recovered in 3 s (after delay)
+const SPRINT_REGEN_DELAY = 5.0             // seconds before regen kicks in
 
 function meshBottomY(meshes: AbstractMesh[]): number {
   let minY = Infinity
@@ -89,6 +93,8 @@ export class Player {
   private spaceWasDown  = false
   private flapCooldown  = 0
   private flapAnimTimer = 0
+  private stamina           = 1.0
+  private staminaRegenDelay = 0
 
   private readonly keys: Record<string, boolean> = {}
   private readonly buildings: BuildingDef[]
@@ -220,9 +226,6 @@ export class Player {
     const rgtX = -Math.sin(a), rgtZ =  Math.cos(a)
 
     const isSneaking = this.character === 'squirrel' && (this.keys['ShiftLeft'] || this.keys['ShiftRight'])
-    const speed = isSneaking ? SNEAK_SPEED
-      : this.character === 'gull' ? (this.onGround ? GULL_MOVE_SPEED : GULL_FLY_SPEED)
-      : MOVE_SPEED
 
     let mx = 0, mz = 0
     if (this.keys['KeyW'] || this.keys['ArrowUp'])    { mx += fwdX; mz += fwdZ }
@@ -232,6 +235,28 @@ export class Player {
     const len = Math.sqrt(mx * mx + mz * mz)
     const moving = len > 0
     if (moving) { mx /= len; mz /= len }
+
+    // Sprint: hold R while squirrel and moving (not sneaking), burns stamina
+    const isSprinting = this.character === 'squirrel' && !isSneaking
+      && this.keys['KeyR'] && this.stamina > 0 && moving
+    if (isSprinting) {
+      this.stamina = Math.max(0, this.stamina - STAMINA_DRAIN_RATE * dt)
+      this.staminaRegenDelay = SPRINT_REGEN_DELAY
+    } else {
+      this.staminaRegenDelay = Math.max(0, this.staminaRegenDelay - dt)
+      if (this.staminaRegenDelay <= 0) {
+        this.stamina = Math.min(1.0, this.stamina + STAMINA_REGEN_RATE * dt)
+      }
+    }
+    const staminaFill = document.getElementById('staminaFill') as HTMLElement | null
+    const staminaBar  = document.getElementById('staminaBar')  as HTMLElement | null
+    if (staminaFill) staminaFill.style.width = `${this.stamina * 100}%`
+    if (staminaBar)  staminaBar.style.display = (isSprinting || this.stamina < 1.0) ? 'block' : 'none'
+
+    const speed = isSneaking ? SNEAK_SPEED
+      : isSprinting ? SPRINT_SPEED
+      : this.character === 'gull' ? (this.onGround ? GULL_MOVE_SPEED : GULL_FLY_SPEED)
+      : MOVE_SPEED
 
     this.velocity.x = mx * speed
     this.velocity.z = mz * speed
@@ -285,6 +310,11 @@ export class Player {
     this.mesh.rotation.y = this.facingY
 
     this.switchAnim(this.computeAnimState(moving))
+    // Speed up run animation while sprinting
+    if (this.character === 'squirrel') {
+      const runEntry = this.squirrelEntries['run']
+      if (runEntry?.group) runEntry.group.speedRatio = isSprinting ? 1.8 : 1.0
+    }
 
     for (const entry of Object.values(this.activeEntries)) {
       if (!entry) continue
@@ -297,11 +327,20 @@ export class Player {
     }
 
     this.camera.target.copyFrom(this.mesh.position)
+    // Keep camera from dipping below ground when looking up
+    const maxBetaGround = Math.acos(Math.max(-0.999,
+      (0.3 - this.camera.target.y) / this.camera.radius))
+    if (this.camera.beta > maxBetaGround) this.camera.beta = maxBetaGround
+
     this.health.update(dt)
 
     const v = this.health.blinkVisible()
+    const sneakTransparent = this.character === 'squirrel' && isSneaking
     const activeEntry = this.activeEntries[this.currentAnim]
-    activeEntry?.root.getChildMeshes(false).forEach(m => { m.isVisible = v })
+    activeEntry?.root.getChildMeshes(false).forEach(m => {
+      m.isVisible  = v
+      m.visibility = sneakTransparent ? 0.35 : 1.0
+    })
   }
 
   respawn() {
@@ -309,6 +348,8 @@ export class Player {
     this.velocity.setAll(0)
     this.isDead = false
     this.health.reset()
+    this.stamina           = 1.0
+    this.staminaRegenDelay = 0
   }
 
   onDeath() {
@@ -395,6 +436,10 @@ export class Player {
       idleEntry.root.getChildMeshes(false).forEach(m => { m.isVisible = true })
       idleEntry.group?.play(true)
     }
+  }
+
+  get isCrouching(): boolean {
+    return this.character === 'squirrel' && (this.keys['ShiftLeft'] || this.keys['ShiftRight'])
   }
 
   getState(): PlayerState {

@@ -21,7 +21,8 @@ const RETURN_SPEED      = 14     // m/s while flying back up
 const HIT_RADIUS        = 2.8    // distance at which the dive connects
 const LEAF_HIDE_DIST    = 5.5    // must match world.ts LEAF_FADE_DIST
 const TRUNK_CLEARANCE   = 3.5    // hawk steers around trunk within this XZ radius
-const AGGRO_COOLDOWN    = 3.0    // seconds before hawk can re-dive after a hit
+const AGGRO_COOLDOWN      = 3.0   // seconds before hawk can re-dive after a hit
+const CROUCH_AGGRO_RADIUS = 12    // hawk can only see a crouching squirrel within this range
 const FLAP_INTERVAL_MIN = 1.8    // seconds between patrol flaps (min)
 const FLAP_INTERVAL_MAX = 4.2    // seconds between patrol flaps (max)
 const FLAP_ANIM_DUR     = 0.55   // how long the flap anim plays
@@ -115,7 +116,8 @@ export class Hawk {
 
   // ── Per-frame helpers ────────────────────────────────────────────────────────
 
-  private isPlayerHidden(playerPos: Vector3): boolean {
+  private isPlayerHidden(playerPos: Vector3, playerCrouching: boolean): boolean {
+    if (playerCrouching && Vector3.Distance(this.pos, playerPos) > CROUCH_AGGRO_RADIUS) return true
     for (const leaf of this.leaves) {
       if (Vector3.Distance(leaf.position, playerPos) < LEAF_HIDE_DIST) return true
     }
@@ -124,7 +126,7 @@ export class Hawk {
 
   // ── State updates ────────────────────────────────────────────────────────────
 
-  private updatePatrol(dt: number, playerPos: Vector3) {
+  private updatePatrol(dt: number, playerPos: Vector3, playerCrouching: boolean) {
     // Advance around the circle
     this.patrolAngle += (PATROL_SPEED / PATROL_RADIUS) * dt
     this.pos.set(
@@ -154,15 +156,15 @@ export class Hawk {
     const dx    = playerPos.x - this.pos.x
     const dz    = playerPos.z - this.pos.z
     const hDist = Math.sqrt(dx * dx + dz * dz)
-    if (hDist < AGGRO_RADIUS && !this.isPlayerHidden(playerPos)) {
+    if (hDist < AGGRO_RADIUS && !this.isPlayerHidden(playerPos, playerCrouching)) {
       this.state = 'dive'
       this.switchAnim('glide')
     }
   }
 
-  private updateDive(dt: number, playerPos: Vector3, health: HealthSystem) {
-    // Abort if player hides in leaves
-    if (this.isPlayerHidden(playerPos)) {
+  private updateDive(dt: number, playerPos: Vector3, health: HealthSystem, playerCrouching: boolean) {
+    // Abort if player hides (leaves or crouch)
+    if (this.isPlayerHidden(playerPos, playerCrouching)) {
       this.state = 'returning'
       this.switchAnim('glide')
       return
@@ -217,10 +219,10 @@ export class Hawk {
 
   // ── Public update ────────────────────────────────────────────────────────────
 
-  update(dt: number, playerPos: Vector3, health: HealthSystem) {
+  update(dt: number, playerPos: Vector3, health: HealthSystem, playerCrouching = false) {
     switch (this.state) {
-      case 'patrol':    this.updatePatrol(dt, playerPos); break
-      case 'dive':      this.updateDive(dt, playerPos, health); break
+      case 'patrol':    this.updatePatrol(dt, playerPos, playerCrouching); break
+      case 'dive':      this.updateDive(dt, playerPos, health, playerCrouching); break
       case 'returning': this.updateReturning(dt); break
     }
 

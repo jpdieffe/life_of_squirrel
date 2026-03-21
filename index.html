@@ -188,6 +188,26 @@
       color: #7eb8ff;
       margin-bottom: 1rem;
     }
+
+    /* ── Stamina bar ── */
+    #staminaBar {
+      position: fixed;
+      top: 0.75rem;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 200px;
+      height: 8px;
+      background: rgba(0, 0, 0, 0.45);
+      border-radius: 4px;
+      overflow: hidden;
+      z-index: 15;
+      pointer-events: none;
+    }
+    #staminaFill {
+      height: 100%;
+      background: #3dd670;
+      border-radius: 4px;
+    }
   </style>
 </head>
 <body>
@@ -225,12 +245,17 @@
     </div>
   </div>
 
+  <!-- Stamina bar (shown when sprinting or below full) -->
+  <div id="staminaBar" style="display:none">
+    <div id="staminaFill" style="width:100%"></div>
+  </div>
+
   <!-- Connected badge -->
   <div id="connBadge">● Connected</div>
 
   <!-- Controls hint -->
   <div id="hud">
-    WASD / Arrows &nbsp;&middot;&nbsp; Space / E to jump &nbsp;&middot;&nbsp; Shift to sneak &nbsp;&middot;&nbsp; Scroll to zoom &nbsp;&middot;&nbsp; Click to capture mouse &nbsp;&middot;&nbsp; ` to toggle debug
+    WASD / Arrows &nbsp;&middot;&nbsp; Space / E to jump &nbsp;&middot;&nbsp; Shift to sneak &nbsp;&middot;&nbsp; R to sprint &nbsp;&middot;&nbsp; Scroll to zoom &nbsp;&middot;&nbsp; Click to capture mouse &nbsp;&middot;&nbsp; ` to toggle debug
   </div>
 
   <script type="module" src="/src/main.ts"></script>
