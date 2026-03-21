@@ -10,7 +10,8 @@ import {
 import type { HealthSystem } from './health'
 
 // ── Tuning ────────────────────────────────────────────────────────────────────
-const HUMAN_SCALE       = 1.0
+const TARGET_HEIGHT     = 1.8   // auto-scale model so it stands this tall (metres)
+const HUMAN_SCALE       = 1.0   // fallback if bounding box cannot be measured
 const SPAWN_X           = 90      // near the house
 const SPAWN_Z           = 53      // south side of the house, outdoors
 const WALK_SPEED        = 3.0     // m/s while walking
@@ -114,15 +115,28 @@ export class Human {
       result.meshes.forEach((m: AbstractMesh) => { if (!m.parent) m.parent = this.root })
       this.root.scaling.setAll(HUMAN_SCALE)
 
-      // Compute y-offset from the static T-pose bounding box so feet sit at y=0
+      // Measure raw bounding box to auto-scale the model to TARGET_HEIGHT metres
       this.scene.incrementRenderId()
       result.meshes.forEach((m: AbstractMesh) => m.computeWorldMatrix(true))
-      let minY = Infinity
+      let minY = Infinity, maxY = -Infinity
+      result.meshes.forEach((m: AbstractMesh) => {
+        const bb = m.getBoundingInfo().boundingBox
+        if (bb.minimumWorld.y < minY) minY = bb.minimumWorld.y
+        if (bb.maximumWorld.y > maxY) maxY = bb.maximumWorld.y
+      })
+      const rawHeight = (isFinite(maxY) && isFinite(minY)) ? (maxY - minY) : 1
+      const autoScale = rawHeight > 0 ? (TARGET_HEIGHT / rawHeight) : HUMAN_SCALE
+      this.root.scaling.setAll(autoScale)
+
+      // Re-measure after scaling so feet sit at y=0
+      this.scene.incrementRenderId()
+      result.meshes.forEach((m: AbstractMesh) => m.computeWorldMatrix(true))
+      let minY2 = Infinity
       result.meshes.forEach((m: AbstractMesh) => {
         const wMin = m.getBoundingInfo().boundingBox.minimumWorld.y
-        if (wMin < minY) minY = wMin
+        if (wMin < minY2) minY2 = wMin
       })
-      this.yOffset = isFinite(minY) ? -minY : 0
+      this.yOffset = isFinite(minY2) ? -minY2 : 0
 
       // Store all animation groups by name; stop them all initially
       result.animationGroups.forEach(g => {
