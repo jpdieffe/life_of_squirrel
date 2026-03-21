@@ -21,7 +21,7 @@ const PATROL_SPEED      = 8      // m/s tangential (how fast it circles)
 const AGGRO_RADIUS      = 35     // horizontal distance to start diving
 const DIVE_SPEED        = 26     // m/s toward player while diving
 const RETURN_SPEED      = 14     // m/s while flying back up
-const HIT_RADIUS        = 1.2    // distance at which the dive connects
+const HIT_RADIUS        = 2.5    // XZ distance at which the dive connects
 const LEAF_HIDE_DIST    = 5.5    // must match world.ts LEAF_FADE_DIST
 const TRUNK_CLEARANCE   = 3.5    // hawk steers around trunk within this XZ radius
 const AGGRO_COOLDOWN      = 3.0   // seconds before hawk can re-dive after a hit
@@ -185,11 +185,16 @@ export class Hawk {
       return
     }
 
-    const target = playerPos.clone().addInPlaceFromFloats(0, 1.0, 0)
+    // Aim at the player's torso (feet + 0.9 m)
+    const target = playerPos.clone().addInPlaceFromFloats(0, 0.9, 0)
     const diff   = target.subtract(this.pos)
     const dist   = diff.length()
 
-    if (dist < HIT_RADIUS) {
+    // Use XZ-only distance for the hit check so the hawk doesn't need to be
+    // at exactly the same height — just needs to pass over the player
+    const xzDist = Math.sqrt(diff.x * diff.x + diff.z * diff.z)
+
+    if (xzDist < HIT_RADIUS && this.pos.y < playerPos.y + 4) {
       health.takeDamage(1)
       this.state         = 'returning'
       this.aggroCooldown = AGGRO_COOLDOWN
