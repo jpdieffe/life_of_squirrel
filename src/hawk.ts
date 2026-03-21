@@ -11,7 +11,7 @@ import {
 import type { HealthSystem } from './health'
 
 // ── Tuning ────────────────────────────────────────────────────────────────────
-const HAWK_SCALE        = 2.5
+const HAWK_SCALE        = 7.5
 const PATROL_HEIGHT     = 40     // Y altitude while patrolling
 const PATROL_RADIUS     = 22     // radius of circular patrol path
 const PATROL_SPEED      = 8      // m/s tangential (how fast it circles)
@@ -20,7 +20,8 @@ const DIVE_SPEED        = 26     // m/s toward player while diving
 const RETURN_SPEED      = 14     // m/s while flying back up
 const HIT_RADIUS        = 2.8    // distance at which the dive connects
 const LEAF_HIDE_DIST    = 5.5    // must match world.ts LEAF_FADE_DIST
-const AGGRO_COOLDOWN    = 3.0    // seconds before hawk can dive again after returning
+const TRUNK_CLEARANCE   = 3.5    // hawk steers around trunk within this XZ radius
+const AGGRO_COOLDOWN    = 3.0    // seconds before hawk can re-dive after a hit
 const FLAP_INTERVAL_MIN = 1.8    // seconds between patrol flaps (min)
 const FLAP_INTERVAL_MAX = 4.2    // seconds between patrol flaps (max)
 const FLAP_ANIM_DUR     = 0.55   // how long the flap anim plays
@@ -131,8 +132,8 @@ export class Hawk {
       PATROL_HEIGHT,
       Math.sin(this.patrolAngle) * PATROL_RADIUS,
     )
-    // Face along the tangent
-    this.facingY = -this.patrolAngle + Math.PI / 2
+    // Face along the tangent: velocity = (-sin(a), 0, cos(a)), atan2(x,z) convention
+    this.facingY = -this.patrolAngle
 
     // Occasional flap
     this.flapTimer     -= dt
@@ -182,6 +183,7 @@ export class Hawk {
     const dir = diff.normalizeToNew()
     this.pos.addInPlace(dir.scale(DIVE_SPEED * dt))
     this.facingY = Math.atan2(dir.x, dir.z)
+    this.avoidTrunk()
   }
 
   private updateReturning(dt: number) {
@@ -200,6 +202,17 @@ export class Hawk {
     }
     this.pos.addInPlace(diff.normalizeToNew().scale(RETURN_SPEED * dt))
     this.facingY = Math.atan2(diff.x, diff.z)
+    this.avoidTrunk()
+  }
+
+  /** Push hawk away from trunk centre so it can't pass through */
+  private avoidTrunk() {
+    const xzDist = Math.sqrt(this.pos.x * this.pos.x + this.pos.z * this.pos.z)
+    if (xzDist < TRUNK_CLEARANCE && xzDist > 0.01) {
+      const scale = TRUNK_CLEARANCE / xzDist
+      this.pos.x *= scale
+      this.pos.z *= scale
+    }
   }
 
   // ── Public update ────────────────────────────────────────────────────────────

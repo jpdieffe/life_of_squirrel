@@ -114,7 +114,7 @@ export class Player {
     const canvas = scene.getEngine().getRenderingCanvas()!
     const SENSITIVITY = 0.0025
     const MIN_BETA = 0.01
-    const MAX_BETA = Math.PI / 2.05
+    const MAX_BETA = Math.PI * 0.85   // allow looking well above horizontal
 
     canvas.addEventListener('mousedown', e => {
       if (e.button !== 0) return
