@@ -33,6 +33,12 @@ const LOW_FLY_MAX        = 9       // player y below this = flying low → immed
 const FLEE_RATE          = 3       // m/s: if gap is growing faster than this, player is fleeing
 const CROUCH_AGGRO_RADIUS = 16     // fox can barely see a crouching player within this range
 
+// House outer bounds — fox cannot walk through the walls (matches _buildHouse in world.ts)
+const HOUSE_X_MIN = 48   // 90 - 84/2
+const HOUSE_X_MAX = 132  // 90 + 84/2
+const HOUSE_Z_MIN = 55   // 90 - 70/2
+const HOUSE_Z_MAX = 125  // 90 + 70/2
+
 type FoxAnim  = 'idle' | 'run' | 'sneak' | 'jump'
 type FoxState = 'idle' | 'running' | 'stalking' | 'chasing' | 'pouncing' | 'cooldown'
 
@@ -161,16 +167,40 @@ export class Fox {
   }
 
   private pickNewWaypoint() {
-    const angle = Math.random() * Math.PI * 2
-    const dist  = RUN_DIST_MIN + Math.random() * (RUN_DIST_MAX - RUN_DIST_MIN)
-    this.waypoint.set(
-      Math.max(-WANDER_BOUND, Math.min(WANDER_BOUND, this.pos.x + Math.sin(angle) * dist)),
-      0,
-      Math.max(-WANDER_BOUND, Math.min(WANDER_BOUND, this.pos.z + Math.cos(angle) * dist)),
+    let attempts = 0
+    do {
+      const angle = Math.random() * Math.PI * 2
+      const dist  = RUN_DIST_MIN + Math.random() * (RUN_DIST_MAX - RUN_DIST_MIN)
+      this.waypoint.set(
+        Math.max(-WANDER_BOUND, Math.min(WANDER_BOUND, this.pos.x + Math.sin(angle) * dist)),
+        0,
+        Math.max(-WANDER_BOUND, Math.min(WANDER_BOUND, this.pos.z + Math.cos(angle) * dist)),
+      )
+      attempts++
+    } while (
+      attempts < 8 &&
+      this.waypoint.x > HOUSE_X_MIN && this.waypoint.x < HOUSE_X_MAX &&
+      this.waypoint.z > HOUSE_Z_MIN && this.waypoint.z < HOUSE_Z_MAX
     )
   }
 
   // ── State handlers ───────────────────────────────────────────────────────────
+
+  /** If the fox has walked into the house footprint, eject it to the nearest outer edge. */
+  private avoidHouse() {
+    const { x, z } = this.pos
+    if (x > HOUSE_X_MIN && x < HOUSE_X_MAX && z > HOUSE_Z_MIN && z < HOUSE_Z_MAX) {
+      const dLeft  = x - HOUSE_X_MIN
+      const dRight = HOUSE_X_MAX - x
+      const dFront = z - HOUSE_Z_MIN
+      const dBack  = HOUSE_Z_MAX - z
+      const minD   = Math.min(dLeft, dRight, dFront, dBack)
+      if      (minD === dLeft)  this.pos.x = HOUSE_X_MIN
+      else if (minD === dRight) this.pos.x = HOUSE_X_MAX
+      else if (minD === dFront) this.pos.z = HOUSE_Z_MIN
+      else                      this.pos.z = HOUSE_Z_MAX
+    }
+  }
 
   private updateIdle(dt: number, playerPos: Vector3, playerCrouching: boolean) {
     this.idleTimer -= dt
@@ -196,6 +226,7 @@ export class Fox {
     this.pos.x += (dx / len) * WANDER_SPEED * dt
     this.pos.z += (dz / len) * WANDER_SPEED * dt
     this.facingY = Math.atan2(dx, dz)
+    this.avoidHouse()
     this.checkAggro(playerPos, playerCrouching)
   }
 
@@ -242,6 +273,7 @@ export class Fox {
     this.pos.x += (dx / dist) * STALK_SPEED * dt
     this.pos.z += (dz / dist) * STALK_SPEED * dt
     this.facingY = Math.atan2(dx, dz)
+    this.avoidHouse()
   }
 
   private updateChasing(dt: number, playerPos: Vector3) {
@@ -259,6 +291,7 @@ export class Fox {
     this.pos.x += (dx / dist) * CHASE_SPEED * dt
     this.pos.z += (dz / dist) * CHASE_SPEED * dt
     this.facingY = Math.atan2(dx, dz)
+    this.avoidHouse()
   }
 
   private returnToWander() {

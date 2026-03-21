@@ -15,7 +15,7 @@ import type { HealthSystem } from './health'
 
 // ── Tuning ────────────────────────────────────────────────────────────────────
 const HAWK_SCALE        = 7.5
-const PATROL_HEIGHT     = 40     // Y altitude while patrolling
+const PATROL_HEIGHT     = 55     // Y altitude while patrolling (above crown at ~49m)
 const PATROL_RADIUS     = 22     // radius of circular patrol path
 const PATROL_SPEED      = 8      // m/s tangential (how fast it circles)
 const AGGRO_RADIUS      = 52     // horizontal distance to start diving
@@ -248,10 +248,10 @@ export class Hawk {
       return
     }
 
-    const dir = diff.normalizeToNew()
+    const rawDir = diff.normalizeToNew()
+    const dir = this.deflectFromTree(rawDir)
     this.pos.addInPlace(dir.scale(DIVE_SPEED * dt))
     this.facingY = Math.atan2(dir.x, dir.z)
-    this.avoidTrunk()  // only trunk during dive — leaf repulsion causes oscillation
   }
 
   private updateReturning(dt: number) {
@@ -289,6 +289,38 @@ export class Hawk {
         this.pos.z = leaf.position.z + dz * scale
       }
     }
+  }
+
+  /**
+   * Smoothly deflect a movement direction away from the tree (trunk + leaves).
+   * Works by accumulating repulsion forces into the direction vector before normalising,
+   * so the hawk steers around the tree rather than teleporting.
+   */
+  private deflectFromTree(moveDir: Vector3): Vector3 {
+    const result = moveDir.clone()
+    // Trunk: wide XZ influence so the hawk arcs around it early
+    const xzDist = Math.sqrt(this.pos.x * this.pos.x + this.pos.z * this.pos.z)
+    const trunkInfluence = TRUNK_CLEARANCE * 4
+    if (xzDist < trunkInfluence && xzDist > 0.01) {
+      const push = (trunkInfluence - xzDist) / trunkInfluence
+      result.x += (this.pos.x / xzDist) * push * 4
+      result.z += (this.pos.z / xzDist) * push * 4
+    }
+    // Leaf spheres: smooth deflection, more lateral than vertical
+    const leafInfluence = LEAF_REPULSE * 2.5
+    for (const leaf of this.leaves) {
+      const dx   = this.pos.x - leaf.position.x
+      const dy   = this.pos.y - leaf.position.y
+      const dz   = this.pos.z - leaf.position.z
+      const dist = Math.sqrt(dx * dx + dy * dy + dz * dz)
+      if (dist < leafInfluence && dist > 0.01) {
+        const push = (leafInfluence - dist) / leafInfluence
+        result.x += (dx / dist) * push * 2.5
+        result.y += (dy / dist) * push * 0.5
+        result.z += (dz / dist) * push * 2.5
+      }
+    }
+    return result.normalize()
   }
 
   /** Push hawk away from trunk centre (XZ only) */
