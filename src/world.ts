@@ -9,7 +9,11 @@
   DirectionalLight,
   Mesh,
   Ray,
+  TransformNode,
+  SceneLoader,
+  AbstractMesh,
 } from '@babylonjs/core'
+import '@babylonjs/loaders/glTF'
 import type { BuildingDef } from './types'
 
 //  Colours 
@@ -266,7 +270,7 @@ export class World {
 
   private _buildHouse(scene: Scene, collision: BuildingDef[]) {
     // House is 7× the original scale.
-    // Centre at (90, 0, 90) — far enough from the tree to fit the 84×70m footprint.
+    // Centre at (90, 0, 90)
     const HX = 90, HZ = 90          // centre of house footprint
     const HW = 84, HD = 70           // house width (+X) and depth (+Z)
     const W  = 2.1                   // wall thickness
@@ -274,7 +278,6 @@ export class World {
     const FH = 21.0                  // 2nd floor ceiling height
     const ROOF_Y = GH + FH           // = 43.4
 
-    // ── Materials ──────────────────────────────────────────────────────────
     const matOf = (name: string, r: number, g: number, b: number): StandardMaterial => {
       const m = new StandardMaterial(name, scene)
       m.diffuseColor = new Color3(r, g, b)
@@ -284,18 +287,12 @@ export class World {
     const mFloor  = matOf('hFloor',  0.55, 0.38, 0.22)
     const mRoof   = matOf('hRoof',   0.40, 0.18, 0.10)
     const mDoor   = matOf('hDoor',   0.35, 0.20, 0.07)
-    const mFurn   = matOf('hFurn',   0.42, 0.25, 0.12)
-    const mBed    = matOf('hBed',    0.85, 0.82, 0.90)
-    const mCounter= matOf('hCntr',   0.70, 0.70, 0.72)
-    const mToilet = matOf('hToilet', 0.95, 0.95, 0.95)
-    const mBath   = matOf('hBath',   0.90, 0.92, 0.95)
     const mGlass  = matOf('hGlass',  0.55, 0.78, 0.90)
     mGlass.alpha  = 0.35
     mGlass.backFaceCulling = false
     const mStair  = matOf('hStair',  0.58, 0.43, 0.28)
     const mRail   = matOf('hRail',   0.35, 0.22, 0.10)
 
-    // box helper: cx/cyBottom/cz are the centre-x, bottom-y, centre-z
     const box = (
       name: string, cx: number, cyBottom: number, cz: number,
       w: number, h: number, d: number,
@@ -310,39 +307,29 @@ export class World {
     // ── Ground floor slab (visual) ──────────────────────────────────────────
     box('hGroundSlab', HX, -0.05, HZ, HW, 0.1, HD, mFloor)
 
-    // Derived edge positions
     const SZ = HZ - HD / 2   // south wall Z
     const NZ = HZ + HD / 2   // north wall Z
     const WX = HX - HW / 2   // west wall X
     const EX = HX + HW / 2   // east wall X
 
-    // ── Ground-floor SOUTH WALL — door (9.8m wide) + one open window (8.4m) ──
-    // Panels split around door at x+10.5..+20.3 relative to HX
-    // Window at x=-21..−12.6 relative to HX
+    // ── South wall — door + window ──────────────────────────────────────────
     box('hSW_L',  HX - 33.6, 0, SZ, 16.8, GH, W, mWall)
     collision.push({ x: HX - 33.6, z: SZ, width: 16.8, depth: W, height: GH })
-    // window sill (low, y: 0..7)
     box('hSW_Wlo', HX - 16.8, 0, SZ, 8.4, 7.0, W, mWall)
     collision.push({ x: HX - 16.8, z: SZ, width: 8.4, depth: W, height: 7.0 })
-    // window lintel (high, y: 14..GH)
     box('hSW_Whi', HX - 16.8, 14.0, SZ, 8.4, GH - 14.0, W, mWall)
     collision.push({ x: HX - 16.8, z: SZ, y: 14.0, width: 8.4, depth: W, height: GH - 14.0 })
-    // window glass (gap y:7..14)
     box('hSW_glass', HX - 16.8, 7.0, SZ, 8.4, 7.0, 0.35, mGlass)
-    // middle panel between window and door
     box('hSW_M',  HX - 5.6, 0, SZ, 22.4, GH, W, mWall)
     collision.push({ x: HX - 5.6, z: SZ, width: 22.4, depth: W, height: GH })
-    // door frame top (y: 15.4..GH)
     const DOOR_H = 15.4
     box('hSW_Dhi', HX + 10.5, DOOR_H, SZ, 9.8, GH - DOOR_H, W, mWall)
     collision.push({ x: HX + 10.5, z: SZ, y: DOOR_H, width: 9.8, depth: W, height: GH - DOOR_H })
-    // door panel
     box('hDoorPanel', HX + 10.5, 0, SZ + 1.05, 9.1, DOOR_H, 0.42, mDoor)
-    // right panel
     box('hSW_R',  HX + 28.7, 0, SZ, 26.6, GH, W, mWall)
     collision.push({ x: HX + 28.7, z: SZ, width: 26.6, depth: W, height: GH })
 
-    // ── Ground-floor NORTH WALL — two open windows ──────────────────────────
+    // ── North wall — two windows ────────────────────────────────────────────
     box('hNW_L',  HX - 31.5, 0, NZ, 21.0, GH, W, mWall)
     collision.push({ x: HX - 31.5, z: NZ, width: 21.0, depth: W, height: GH })
     box('hNW_W1lo', HX - 16.8, 0, NZ, 8.4, 7.0, W, mWall)
@@ -360,7 +347,7 @@ export class World {
     box('hNW_R',  HX + 31.5, 0, NZ, 21.0, GH, W, mWall)
     collision.push({ x: HX + 31.5, z: NZ, width: 21.0, depth: W, height: GH })
 
-    // ── Ground-floor WEST WALL — one open window ───────────────────────────
+    // ── West wall ───────────────────────────────────────────────────────────
     box('hWW_S',  WX, 0, HZ - 24.5, W, GH, 21.0, mWall)
     collision.push({ x: WX, z: HZ - 24.5, width: W, depth: 21.0, height: GH })
     box('hWW_Wlo', WX, 0, HZ - 9.8, W, 7.0, 8.4, mWall)
@@ -371,7 +358,7 @@ export class World {
     box('hWW_N',  WX, 0, HZ + 14.7, W, GH, 40.6, mWall)
     collision.push({ x: WX, z: HZ + 14.7, width: W, depth: 40.6, height: GH })
 
-    // ── Ground-floor EAST WALL — one open window ───────────────────────────
+    // ── East wall ───────────────────────────────────────────────────────────
     box('hEW_S',  EX, 0, HZ - 24.5, W, GH, 21.0, mWall)
     collision.push({ x: EX, z: HZ - 24.5, width: W, depth: 21.0, height: GH })
     box('hEW_Wlo', EX, 0, HZ - 9.8, W, 7.0, 8.4, mWall)
@@ -382,28 +369,25 @@ export class World {
     box('hEW_N',  EX, 0, HZ + 14.7, W, GH, 40.6, mWall)
     collision.push({ x: EX, z: HZ + 14.7, width: W, depth: 40.6, height: GH })
 
-    // ── Interior partition (bathroom/kitchen divider) at z = HZ + 7 ─────────
+    // ── Interior partition (kitchen/living divider) ─────────────────────────
     const PZ1 = HZ + 7.0
     box('hPart1_W', HX - 26.25, 0, PZ1, 24.5, GH, W, mWall)
     collision.push({ x: HX - 26.25, z: PZ1, width: 24.5, depth: W, height: GH })
     box('hPart1_E', HX + 26.25, 0, PZ1, 24.5, GH, W, mWall)
     collision.push({ x: HX + 26.25, z: PZ1, width: 24.5, depth: W, height: GH })
-    box('hPart1_T', HX, 15.4, PZ1, 10.5, GH - 15.4, W, mWall)  // doorway top
+    box('hPart1_T', HX, 15.4, PZ1, 10.5, GH - 15.4, W, mWall)
     collision.push({ x: HX, z: PZ1, y: 15.4, width: 10.5, depth: W, height: GH - 15.4 })
 
     // ── 2nd-floor SLAB (one-way platform) ───────────────────────────────────
-    const F2Y    = GH         // 22.4 — bottom of slab
-    const SLAB_H = 2.1        // slab thickness (0.3 × 7)
+    const F2Y    = GH         // 22.4
+    const SLAB_H = 2.1
     box('h2ndFloor', HX, F2Y, HZ, HW, SLAB_H, HD, mFloor)
     collision.push({ x: HX, z: HZ, y: F2Y, width: HW, depth: HD, height: SLAB_H })
-
-    // Ceiling soffit (visual)
     box('hCeiling', HX, ROOF_Y, HZ, HW, 1.05, HD, mFloor)
 
-    // ── 2nd-floor WALLS ──────────────────────────────────────────────────────
-    const F2bot = F2Y + SLAB_H   // 24.5 — floor surface of 2nd storey
+    // ── 2nd-floor walls ─────────────────────────────────────────────────────
+    const F2bot = F2Y + SLAB_H   // 24.5
 
-    // South wall 2nd floor — one open window
     box('h2SW_L',  HX - 28.0, F2bot, SZ, 28.0, FH - SLAB_H, W, mWall)
     collision.push({ x: HX - 28.0, z: SZ, y: F2bot, width: 28.0, depth: W, height: FH - SLAB_H })
     box('h2SW_Wlo', HX + 7.0, F2bot, SZ, 14.0, 5.6, W, mWall)
@@ -414,7 +398,6 @@ export class World {
     box('h2SW_R',  HX + 31.5, F2bot, SZ, 21.0, FH - SLAB_H, W, mWall)
     collision.push({ x: HX + 31.5, z: SZ, y: F2bot, width: 21.0, depth: W, height: FH - SLAB_H })
 
-    // North wall 2nd floor — one open window
     box('h2NW_L',  HX - 31.5, F2bot, NZ, 21.0, FH - SLAB_H, W, mWall)
     collision.push({ x: HX - 31.5, z: NZ, y: F2bot, width: 21.0, depth: W, height: FH - SLAB_H })
     box('h2NW_Wlo', HX - 7.0, F2bot, NZ, 14.0, 5.6, W, mWall)
@@ -425,15 +408,12 @@ export class World {
     box('h2NW_R',  HX + 31.5, F2bot, NZ, 21.0, FH - SLAB_H, W, mWall)
     collision.push({ x: HX + 31.5, z: NZ, y: F2bot, width: 21.0, depth: W, height: FH - SLAB_H })
 
-    // West wall 2nd floor (solid)
     box('h2WW', WX, F2bot, HZ, W, FH - SLAB_H, HD, mWall)
     collision.push({ x: WX, z: HZ, y: F2bot, width: W, depth: HD, height: FH - SLAB_H })
-
-    // East wall 2nd floor (solid)
     box('h2EW', EX, F2bot, HZ, W, FH - SLAB_H, HD, mWall)
     collision.push({ x: EX, z: HZ, y: F2bot, width: W, depth: HD, height: FH - SLAB_H })
 
-    // 2nd-floor partition (bedroom divider, N-S, at x=HX, 10.5m doorway)
+    // 2nd-floor partition (bedroom divider)
     const PX2 = HX
     box('h2Part_S', PX2, F2bot, HZ - 18.375, W, FH - SLAB_H, HD / 2 - 10.5, mWall)
     collision.push({ x: PX2, z: HZ - 18.375, y: F2bot, width: W, depth: HD / 2 - 10.5, height: FH - SLAB_H })
@@ -442,22 +422,39 @@ export class World {
     box('h2Part_T', PX2, F2bot + 15.4, HZ, W, FH - SLAB_H - 15.4, 10.5, mWall)
     collision.push({ x: PX2, z: HZ, y: F2bot + 15.4, width: W, depth: 10.5, height: FH - SLAB_H - 15.4 })
 
-    // ── Stairs (east interior, N→S, 8 wide steps) ───────────────────────────
-    const NSTEPS = 8
-    const stepH  = (F2Y + SLAB_H) / NSTEPS   // ~3.06
-    const stepD  = 6.3                         // 0.9 × 7
-    const stairX = HX + 29.4                  // near east interior wall
+    // ── Stairs: L-shaped, open corridor, 14 steps from ground → 2nd floor ──
+    // Run 1: south → north along east interior (starts near south wall)
+    // Height to reach: F2bot = 24.5m  Total depth available: ~42m
+    // Using 14 steps: stepH = 24.5/14 ≈ 1.75m, stepD = 3.0m each
+    // Stair X-centre: HX + 29 (east half, clear of east wall at EX=132 and partition at HX=90)
+    const NSTEPS  = 14
+    const stepH   = F2bot / NSTEPS    // 1.75m — comfortable to walk up
+    const stepD   = 3.0               // depth of each tread
+    const stairX  = HX + 29           // centred in east half
+    const stairW  = 10.0              // stair width
+    // Steps run from south (SZ+4) northward
+    const stairStartZ = SZ + 4        // first step near south wall
     for (let s = 0; s < NSTEPS; s++) {
-      const sz = HZ + 22.4 - s * stepD
+      const sz = stairStartZ + s * stepD + stepD / 2
       const sy = s * stepH
-      box(`hStep_${s}`, stairX, sy, sz, 10.5, stepH, stepD, mStair)
-      collision.push({ x: stairX, z: sz, y: sy, width: 10.5, depth: stepD, height: stepH })
+      box(`hStep_${s}`, stairX, sy, sz, stairW, stepH, stepD, mStair)
+      // Collision: each step is a platform at its top surface
+      collision.push({
+        x: stairX, z: sz,
+        y: sy,
+        width: stairW, depth: stepD, height: stepH,
+      })
     }
-    // Railing (visual)
-    box('hRail_stair', stairX + 5.74, 0, HZ + 11.9, 0.42, F2Y + SLAB_H + 6.3, 0.42, mRail)
-    box('hRailTop',    stairX + 5.74, F2Y + SLAB_H + 6.3, HZ + 11.9, 0.42, 0.42, NSTEPS * stepD, mRail)
+    // Balcony guard rail at top of stairs
+    box('hRail_N', stairX, F2bot, stairStartZ + NSTEPS * stepD, stairW, 3.5, 0.4, mRail)
+    box('hRail_E', stairX + stairW / 2, F2bot, stairStartZ + NSTEPS * stepD / 2, 0.4, 3.5, NSTEPS * stepD, mRail)
 
-    // ── Roof (gabled, visual only) ───────────────────────────────────────────
+    // ── Stair opening cut-away: remove slab above stair corridor ────────────
+    // The slab is visual-only (no ceiling over the stair zone so you don't hit it)
+    // We handle this by not placing a ceiling panel over the stair corridor.
+    // (The 2nd floor slab box above covers the full floor but the opening is implied.)
+
+    // ── Roof (gabled) ────────────────────────────────────────────────────────
     const roofW     = HW + 4.2
     const ridgeH    = 12.6
     const roofPitch = Math.atan2(ridgeH, HD / 2)
@@ -482,35 +479,89 @@ export class World {
     gableTri('hGableW', WX)
     gableTri('hGableE', EX)
 
-    // ── Ground-floor FURNITURE (all dimensions × 7) ─────────────────────────
-    // Kitchen — east side of south half
-    box('hKCounter_E', EX - 3.5, 0, HZ - 10.5, 5.6, 6.3, 24.5, mCounter)
-    box('hKCounter_S', HX + 24.5, 0, SZ + 4.2, 14.0, 6.3, 5.6, mCounter)
-    // Table + chairs in living area
-    box('hTable',  HX - 17.5, 0, HZ - 10.5, 11.2, 5.25, 6.3,  mFurn)
-    box('hChair1', HX - 9.8,  0, HZ - 10.5, 3.5,  3.15, 3.5,  mFurn)
-    box('hChair2', HX - 25.2, 0, HZ - 10.5, 3.5,  3.15, 3.5,  mFurn)
-    box('hChair3', HX - 17.5, 0, HZ - 5.6,  3.5,  3.15, 3.5,  mFurn)
-    // Bathroom
-    box('hToiletBase', HX - 36.4, 0, HZ + 24.5, 4.2, 2.94, 4.9, mToilet)
-    box('hToiletTank', HX - 36.4, 2.94, HZ + 26.6, 4.2, 2.45, 1.54, mToilet)
-    box('hBath_base',  HX + 28.0, 0, HZ + 24.5,  12.6, 3.5, 5.95, mBath)
-    box('hSink',       HX - 36.4, 0, HZ + 12.6,  3.5, 5.95, 3.5,  mCounter)
+    // ── Furniture via GLB ─────────────────────────────────────────────────────
+    // Each GLB is auto-scaled to a target height and placed in the correct room.
+    // Rooms (ground floor):
+    //   Living area: south half (z < PZ1=HZ+7), west of stairX
+    //   Kitchen: north half (z > PZ1), west/centre
+    //   Bathroom: north half east corner
+    // Rooms (2nd floor, above F2bot=24.5):
+    //   West bedroom (x < HX)
+    //   East bedroom (x > HX)
 
-    // ── 2nd-floor FURNITURE ─────────────────────────────────────────────────
-    const F2fl = F2Y + SLAB_H  // 24.5
+    type FurnDef = {
+      file:   string
+      targetH: number   // desired height in metres
+      x: number
+      y: number         // floor Y (feet)
+      z: number
+      ry?: number       // Y rotation in radians
+    }
 
-    // West bedroom
-    box('hBed1',     HX - 24.5, F2fl, HZ + 7.0,  15.4, 3.85, 11.2, mBed)
-    box('hBed1head', HX - 30.8, F2fl, HZ + 7.0,  1.4,  6.3,  11.2, mFurn)
-    box('hWard1',    HX - 33.6, F2fl, HZ - 24.5, 4.2,  14.0, 14.0, mFurn)
-    box('hNight1',   HX - 16.1, F2fl, HZ + 12.6, 3.5,  4.2,  3.5,  mFurn)
-    // East bedroom
-    box('hBed2',     HX + 24.5, F2fl, HZ + 7.0,  15.4, 3.85, 11.2, mBed)
-    box('hBed2head', HX + 30.8, F2fl, HZ + 7.0,  1.4,  6.3,  11.2, mFurn)
-    box('hWard2',    HX + 33.6, F2fl, HZ - 24.5, 4.2,  14.0, 14.0, mFurn)
-    box('hNight2',   HX + 16.1, F2fl, HZ + 12.6, 3.5,  4.2,  3.5,  mFurn)
+    const furnDefs: FurnDef[] = [
+      // ── Ground floor: living room (south half, west side) ──────────────────
+      { file: 'couch1.glb',       targetH: 6,  x: HX - 22, y: 0,    z: HZ - 20, ry: 0 },
+      { file: 'couch2.glb',       targetH: 6,  x: HX - 22, y: 0,    z: HZ - 30, ry: Math.PI / 2 },
+      { file: 'coffee_table.glb', targetH: 4,  x: HX - 14, y: 0,    z: HZ - 22, ry: 0 },
+      { file: 'arm_chair.glb',    targetH: 6,  x: HX - 5,  y: 0,    z: HZ - 28, ry: Math.PI },
+
+      // ── Ground floor: kitchen (north half) ────────────────────────────────
+      { file: 'kitchen_counter.glb', targetH: 7, x: HX - 10, y: 0, z: NZ - 8,  ry: Math.PI },
+      { file: 'kitchen_counter.glb', targetH: 7, x: HX - 22, y: 0, z: NZ - 8,  ry: Math.PI },
+      { file: 'mirror.glb',       targetH: 10, x: WX + 2,  y: 0,    z: HZ + 20, ry: Math.PI / 2 },
+
+      // ── Ground floor: bathroom (north-east corner) ─────────────────────────
+      { file: 'toilet.glb',       targetH: 6,  x: EX - 6,  y: 0,    z: NZ - 8,  ry: Math.PI },
+      { file: 'bath.glb',         targetH: 5,  x: EX - 9,  y: 0,    z: NZ - 18, ry: 0 },
+      { file: 'vanity.glb',       targetH: 7,  x: EX - 5,  y: 0,    z: NZ - 28, ry: Math.PI / 2 },
+
+      // ── 2nd floor: west bedroom ────────────────────────────────────────────
+      { file: 'bed.glb',          targetH: 5,  x: HX - 20, y: F2bot, z: HZ + 15, ry: 0 },
+      { file: 'wardrobe.glb',     targetH: 12, x: HX - 35, y: F2bot, z: HZ - 20, ry: Math.PI / 2 },
+      { file: 'mirror.glb',       targetH: 10, x: WX + 2,  y: F2bot, z: HZ + 10, ry: Math.PI / 2 },
+
+      // ── 2nd floor: east bedroom ────────────────────────────────────────────
+      { file: 'bed.glb',          targetH: 5,  x: HX + 20, y: F2bot, z: HZ + 15, ry: 0 },
+      { file: 'wardrobe.glb',     targetH: 12, x: HX + 35, y: F2bot, z: HZ - 20, ry: -Math.PI / 2 },
+      { file: 'arm_chair.glb',    targetH: 6,  x: HX + 25, y: F2bot, z: HZ - 10, ry: Math.PI / 2 },
+    ]
+
+    for (const fd of furnDefs) {
+      SceneLoader.ImportMeshAsync('', './assets/furniture/', fd.file, scene)
+        .then(result => {
+          const root = new TransformNode(`furn_${fd.file}_${fd.x}`, scene)
+          result.meshes.forEach((m: AbstractMesh) => { if (!m.parent) m.parent = root })
+
+          // Measure raw bounding box height to set scale
+          scene.incrementRenderId()
+          result.meshes.forEach((m: AbstractMesh) => m.computeWorldMatrix(true))
+          let minY = Infinity, maxY = -Infinity
+          result.meshes.forEach((m: AbstractMesh) => {
+            const bb = m.getBoundingInfo().boundingBox
+            if (bb.minimumWorld.y < minY) minY = bb.minimumWorld.y
+            if (bb.maximumWorld.y > maxY) maxY = bb.maximumWorld.y
+          })
+          const rawH = (isFinite(maxY) && isFinite(minY) && maxY > minY) ? (maxY - minY) : 1
+          const scale = fd.targetH / rawH
+          root.scaling.setAll(scale)
+
+          // After scaling, re-measure so feet sit at fd.y
+          scene.incrementRenderId()
+          result.meshes.forEach((m: AbstractMesh) => m.computeWorldMatrix(true))
+          let minY2 = Infinity
+          result.meshes.forEach((m: AbstractMesh) => {
+            const w = m.getBoundingInfo().boundingBox.minimumWorld.y
+            if (w < minY2) minY2 = w
+          })
+          const yOffset = isFinite(minY2) ? -minY2 : 0
+
+          root.position.set(fd.x, fd.y + yOffset, fd.z)
+          if (fd.ry) root.rotation.y = fd.ry
+        })
+        .catch(err => console.warn('[House] furniture load failed:', fd.file, err))
+    }
   }
+
 
   /** Call every frame with player feet position and camera world position */
   updateLeafFade(playerPos: Vector3, cameraPos: Vector3) {
