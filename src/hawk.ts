@@ -52,6 +52,7 @@ export class Hawk {
   private flapTimer     = 1.5    // time until next patrol flap
   private flapAnimTimer = 0
   private aggroCooldown = 0      // prevents immediate re-dive after returning
+  private glideYOffset  = 0     // set after glide model loads; lifts root above pos
   private shadowDisc!: Mesh
 
   constructor(
@@ -100,6 +101,7 @@ export class Hawk {
         if (wMin < minY) minY = wMin
       })
       const yOffset = isFinite(minY) ? -minY : 0
+      if (state === 'glide') this.glideYOffset = yOffset  // record for hit detection
       result.meshes.forEach((m: AbstractMesh) => { m.isVisible = false })
       const group = result.animationGroups[0] ?? null
       if (group) { group.stop(); group.loopAnimation = state !== 'flap' }
@@ -185,16 +187,16 @@ export class Hawk {
       return
     }
 
-    // Aim at the player's torso (feet + 0.9 m)
-    const target = playerPos.clone().addInPlaceFromFloats(0, 0.9, 0)
-    const diff   = target.subtract(this.pos)
-    const dist   = diff.length()
+    // Target: aim so the hawk's VISUAL body (pos.y + glideYOffset) swoops down to the player
+    const targetY = playerPos.y + 0.9 - this.glideYOffset
+    const target  = new Vector3(playerPos.x, targetY, playerPos.z)
+    const diff    = target.subtract(this.pos)
 
-    // Use XZ-only distance for the hit check so the hawk doesn't need to be
-    // at exactly the same height — just needs to pass over the player
-    const xzDist = Math.sqrt(diff.x * diff.x + diff.z * diff.z)
+    // Hit: measure XZ distance and check that the hawk visual body is near the player
+    const xzDist    = Math.sqrt(diff.x * diff.x + diff.z * diff.z)
+    const hawkBodyY = this.pos.y + this.glideYOffset   // where the visible hawk actually is
 
-    if (xzDist < HIT_RADIUS && this.pos.y < playerPos.y + 4) {
+    if (xzDist < HIT_RADIUS && hawkBodyY < playerPos.y + 4) {
       health.takeDamage(1)
       this.state         = 'returning'
       this.aggroCooldown = AGGRO_COOLDOWN
