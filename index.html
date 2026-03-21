@@ -298,6 +298,41 @@
       background: #3dd670;
       border-radius: 4px;
     }
+
+    /* ── Sneak eye indicator (top-right) ── */
+    #sneakEye {
+      display: none;
+      position: fixed;
+      top: 0.75rem;
+      right: 0.9rem;
+      width: 46px;
+      height: 46px;
+      pointer-events: none;
+      z-index: 30;
+    }
+    #sneakEye svg {
+      width: 100%;
+      height: 100%;
+      filter: drop-shadow(0 0 4px rgba(0,0,0,0.7));
+    }
+    /* background pill */
+    #sneakEye .eye-bg {
+      fill: rgba(10, 10, 30, 0.78);
+    }
+    /* open-eye whites */
+    #sneakEye .eye-white   { fill: #e8e8e8; }
+    /* pupil colour changes per state */
+    #sneakEye .eye-pupil   { fill: #1a1a3a; transition: fill 0.25s; }
+    /* lids */
+    #sneakEye .lid-top,
+    #sneakEye .lid-bot     { fill: #4a6a40; transition: d 0.25s; }
+    /* closed state — lids meet in the middle, hide whites & pupil */
+    #sneakEye.hidden .eye-white { opacity: 0; }
+    #sneakEye.hidden .eye-pupil { opacity: 0; }
+    #sneakEye.chased  .eye-pupil { fill: #cc2222; }
+    #sneakEye.chased  .eye-white { fill: #fff0f0; }
+    #sneakEye.chased  .lid-top,  
+    #sneakEye.chased  .lid-bot   { fill: #8b1a1a; }
   </style>
 </head>
 <body>
@@ -351,6 +386,25 @@
 
   <!-- Build mode indicator -->
   <div id="buildMode">🏗 BUILD MODE &nbsp;&middot;&nbsp; Click to place &nbsp;&middot;&nbsp; [T] to exit</div>
+
+  <!-- Sneak eye indicator -->
+  <div id="sneakEye">
+    <!-- SVG eye: 46×46 viewBox -->
+    <svg viewBox="0 0 46 46" xmlns="http://www.w3.org/2000/svg">
+      <!-- background pill -->
+      <rect class="eye-bg" x="1" y="1" width="44" height="44" rx="10" ry="10"/>
+      <!-- eye whites (almond shape) -->
+      <ellipse class="eye-white" cx="23" cy="23" rx="16" ry="9"/>
+      <!-- pupil -->
+      <circle class="eye-pupil" cx="23" cy="23" r="5.5"/>
+      <!-- top lid (open = hugs top of almond) -->
+      <path class="lid-top" id="eyeLidTop"
+        d="M 7 23 Q 23 10 39 23 Q 23 14 7 23 Z"/>
+      <!-- bottom lid (open = hugs bottom of almond) -->
+      <path class="lid-bot" id="eyeLidBot"
+        d="M 7 23 Q 23 36 39 23 Q 23 32 7 23 Z"/>
+    </svg>
+  </div>
 
   <!-- Connected badge -->
   <div id="connBadge">● Connected</div>

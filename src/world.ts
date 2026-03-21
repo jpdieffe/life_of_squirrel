@@ -563,6 +563,14 @@ export class World {
   }
 
 
+  /** Returns true if playerPos is inside any leaf sphere (hidden by foliage). */
+  isPlayerHidden(playerPos: Vector3): boolean {
+    for (const leaf of this.leaves) {
+      if (Vector3.Distance(leaf.position, playerPos) < LEAF_FADE_DIST) return true
+    }
+    return false
+  }
+
   /** Call every frame with player feet position and camera world position */
   updateLeafFade(playerPos: Vector3, cameraPos: Vector3) {
     // Ray from camera to squirrel — any leaf crossing this line also fades

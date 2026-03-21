@@ -367,6 +367,7 @@ export class Hawk {
   get posY()       { return this.pos.y }
   get posZ()       { return this.pos.z }
   get facingAngle(){ return this.facingY }
+  get isDiving()   { return this.state === 'dive' }
 
   applyRemoteState(x: number, y: number, z: number, ry: number, active: boolean) {
     if (!active) {

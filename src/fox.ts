@@ -381,6 +381,7 @@ export class Fox {
   get posZ()        { return this.pos.z }
   get facingAngle() { return this.facingY }
   get isStalking()  { return this.state === 'stalking' }
+  get isChasing()   { return this.state === 'chasing' || this.state === 'pouncing' }
 
   applyRemoteState(x: number, y: number, z: number, ry: number, active: boolean, stalking: boolean) {
     if (!active) {

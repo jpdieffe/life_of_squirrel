@@ -79,7 +79,36 @@ async function startGame() {
 
   const acornCountEl = document.getElementById('acornCount')!
   const buildModeEl  = document.getElementById('buildMode')!
+  const sneakEyeEl   = document.getElementById('sneakEye') as HTMLElement | null
   acornCountEl.style.display = 'block'
+  if (sneakEyeEl) sneakEyeEl.style.display = 'block'
+
+  // ── Sneak-eye state machine ─────────────────────────────────────────────────
+  // Drives the #sneakEye indicator:
+  //   'chased'  → red open eye  (enemy is actively chasing / diving)
+  //   'hidden'  → closed eye    (crouching, or inside leaf foliage)
+  //   'open'    → normal open eye (exposed in the open)
+  type EyeState = 'open' | 'hidden' | 'chased'
+  let lastEyeState: EyeState = 'open'
+  function setEyeState(s: EyeState) {
+    if (!sneakEyeEl || s === lastEyeState) return
+    lastEyeState = s
+    sneakEyeEl.classList.remove('hidden', 'chased')
+    if (s !== 'open') sneakEyeEl.classList.add(s)
+    // Animate the lids
+    const lidTop = sneakEyeEl.querySelector('#eyeLidTop')
+    const lidBot = sneakEyeEl.querySelector('#eyeLidBot')
+    if (s === 'hidden') {
+      // Lids close — both paths sweep across to meet at centre line
+      if (lidTop) lidTop.setAttribute('d', 'M 7 23 Q 23 20 39 23 Q 23 23 7 23 Z')
+      if (lidBot) lidBot.setAttribute('d', 'M 7 23 Q 23 26 39 23 Q 23 23 7 23 Z')
+    } else {
+      // Lids open
+      if (lidTop) lidTop.setAttribute('d', 'M 7 23 Q 23 10 39 23 Q 23 14 7 23 Z')
+      if (lidBot) lidBot.setAttribute('d', 'M 7 23 Q 23 36 39 23 Q 23 32 7 23 Z')
+    }
+  }
+  // ───────────────────────────────────────────────────────────────────────────
 
   // T → toggle building mode
   window.addEventListener('keydown', (e) => {
@@ -144,6 +173,14 @@ async function startGame() {
     acorns.update(dt, player.position)
     building.update(player.position, player.facingAngle)
     acornCountEl.textContent = `🌰 ${acorns.count}`
+
+    // ── Sneak eye update ─────────────────────────────────────────────────────
+    {
+      const chased = (hawk.isActive && hawk.isDiving) || (fox.isActive && fox.isChasing)
+      const hidden = !chased && (player.isCrouching || world.isPlayerHidden(player.position))
+      setEyeState(chased ? 'chased' : hidden ? 'hidden' : 'open')
+    }
+    // ─────────────────────────────────────────────────────────────────────────
 
     // ── Wave tick (host only) ────────────────────────────────────────────────
     if (isHost) {
