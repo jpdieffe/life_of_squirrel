@@ -7,12 +7,9 @@ export class DebugPanel {
 
   constructor(private readonly canvas: HTMLCanvasElement) {
     window.addEventListener('keydown', e => {
-      if (e.key === '~') {
+      if (e.code === 'Backquote') {
         e.preventDefault()
         this.isOpen ? this.close() : this.open()
-      } else if (e.key === '`') {
-        e.preventDefault()
-        document.exitPointerLock()
       }
     })
 
