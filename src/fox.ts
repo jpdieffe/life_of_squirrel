@@ -246,8 +246,8 @@ export class Fox {
     this.state = 'pouncing'
     this.switchAnim('jump')
     this.pounceStart.copyFrom(this.pos)
-    // Land at the player's actual position (works for ground and low fly)
-    this.pounceEnd.copyFrom(playerPos)
+    // Land on the ground directly below the player so the fox always returns to y=0
+    this.pounceEnd.set(playerPos.x, 0, playerPos.z)
     const dx = playerPos.x - this.pos.x
     const dz = playerPos.z - this.pos.z
     const horizDist = Math.sqrt(dx * dx + dz * dz)
@@ -261,11 +261,10 @@ export class Fox {
     this.pounceTimer += dt
     const t = Math.min(1, this.pounceTimer / this.pounceDuration)
 
-    // Parabolic arc: lerp XYZ, add sin arc on top of target Y
-    const baseY = this.pounceStart.y + (this.pounceEnd.y - this.pounceStart.y) * t
+    // Parabolic arc: lerp XZ along ground, sin arc adds height (reaches flying gull mid-arc)
     this.pos.x = this.pounceStart.x + (this.pounceEnd.x - this.pounceStart.x) * t
     this.pos.z = this.pounceStart.z + (this.pounceEnd.z - this.pounceStart.z) * t
-    this.pos.y = baseY + Math.sin(t * Math.PI) * POUNCE_HEIGHT
+    this.pos.y = Math.sin(t * Math.PI) * POUNCE_HEIGHT
 
     if (!this.hitDealt) {
       const dx = playerPos.x - this.pos.x
@@ -278,7 +277,7 @@ export class Fox {
     }
 
     if (t >= 1) {
-      this.pos.y         = this.pounceEnd.y
+      this.pos.y         = 0  // always land on the ground
       this.state         = 'cooldown'
       this.cooldownTimer = POUNCE_COOLDOWN
       this.switchAnim('idle')
