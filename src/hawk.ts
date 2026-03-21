@@ -327,4 +327,38 @@ export class Hawk {
     ;(this.shadowDisc.material as StandardMaterial).alpha =
       Math.max(0.02, 0.65 - heightFrac * 0.58)
   }
+
+  // ── Remote rendering (joiner only) ───────────────────────────────────────────
+
+  get isActive()   { return this.active }
+  get posX()       { return this.pos.x }
+  get posY()       { return this.pos.y }
+  get posZ()       { return this.pos.z }
+  get facingAngle(){ return this.facingY }
+
+  applyRemoteState(x: number, y: number, z: number, ry: number, active: boolean) {
+    if (!active) {
+      if (this.active) this.setActive(false)
+      return
+    }
+    if (!this.active) {
+      this.active = true
+      this.shadowDisc.isVisible = true
+      this.switchAnim('glide')
+    }
+    this.pos.set(x, y, z)
+    this.facingY = ry
+    for (const entry of Object.values(this.entries)) {
+      if (!entry) continue
+      entry.root.position.set(x, y + entry.yOffset, z)
+      entry.root.rotation.y = ry
+    }
+    const heightFrac = Math.max(0, Math.min(1.2, y / PATROL_HEIGHT))
+    this.shadowDisc.position.x = x
+    this.shadowDisc.position.z = z
+    this.shadowDisc.scaling.x  = 1.5 + heightFrac * 3.5
+    this.shadowDisc.scaling.z  = this.shadowDisc.scaling.x
+    ;(this.shadowDisc.material as StandardMaterial).alpha =
+      Math.max(0.02, 0.65 - heightFrac * 0.58)
+  }
 }

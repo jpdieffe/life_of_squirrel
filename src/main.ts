@@ -23,6 +23,8 @@ function networkError(msg: string) {
   statusEl.style.color = '#ff6b6b'
 }
 
+let isHost = false
+
 async function startGame() {
   let engine: Engine | undefined
   for (const noWebGL2 of [false, true]) {
@@ -113,30 +115,52 @@ async function startGame() {
     player.update(dt)
     world.updateLeafFade(player.position, player.camera.position)
 
-    // ── Wave tick ─────────────────────────────────────────────────────────────
-    waveTimer -= dt
-    if (wavePhase === 'peace' && waveTimer <= 0) {
-      wavePhase = 'alerting'
-      waveTimer = ALERT_DURATION
-      activeEnemy = pickEnemy()
-      showAlert(activeEnemy === 'hawk'
-        ? '⚠ A hawk has been spotted!'
-        : '⚠ A fox is lurking nearby!')
-    } else if (wavePhase === 'alerting' && waveTimer <= 0) {
-      wavePhase = 'active'
-      waveTimer = ACTIVE_DURATION
-      if (activeEnemy === 'hawk') hawk.setActive(true)
-      else if (activeEnemy === 'fox') fox.setActive(true)
-    } else if (wavePhase === 'active' && waveTimer <= 0) {
-      deactivateActive()
-      wavePhase = 'peace'
-      waveTimer = PEACE_DURATION
-    }
+    // ── Wave tick (host only) ────────────────────────────────────────────────
+    if (isHost) {
+      waveTimer -= dt
+      if (wavePhase === 'peace' && waveTimer <= 0) {
+        wavePhase = 'alerting'
+        waveTimer = ALERT_DURATION
+        activeEnemy = pickEnemy()
+        showAlert(activeEnemy === 'hawk'
+          ? '⚠ A hawk has been spotted!'
+          : '⚠ A fox is lurking nearby!')
+      } else if (wavePhase === 'alerting' && waveTimer <= 0) {
+        wavePhase = 'active'
+        waveTimer = ACTIVE_DURATION
+        if (activeEnemy === 'hawk') hawk.setActive(true)
+        else if (activeEnemy === 'fox') fox.setActive(true)
+      } else if (wavePhase === 'active' && waveTimer <= 0) {
+        deactivateActive()
+        wavePhase = 'peace'
+        waveTimer = PEACE_DURATION
+      }
 
-    // Only tick the currently active enemy
-    if (wavePhase === 'active') {
-      if (activeEnemy === 'hawk') hawk.update(dt, player.position, player.health, player.isCrouching)
-      else if (activeEnemy === 'fox') fox.update(dt, player.position, player.health)
+      // Tick enemy AI
+      if (wavePhase === 'active') {
+        if (activeEnemy === 'hawk') hawk.update(dt, player.position, player.health, player.isCrouching)
+        else if (activeEnemy === 'fox') fox.update(dt, player.position, player.health, player.isCrouching)
+      }
+
+      // Broadcast enemy positions to joiner
+      if (network.isConnected()) {
+        network.sendEnemyState({
+          hawkActive: hawk.isActive,
+          hx: hawk.posX, hy: hawk.posY, hz: hawk.posZ, hry: hawk.facingAngle,
+          foxActive:  fox.isActive,
+          fx: fox.posX,  fy: fox.posY,  fz: fox.posZ,  fry: fox.facingAngle,
+          foxStalking: fox.isStalking,
+        })
+      }
+    } else {
+      // Joiner: apply enemy positions received from host
+      if (network.lastRemoteEnemyState) {
+        const es = network.lastRemoteEnemyState
+        if (es.hawkActive && !hawk.isActive) showAlert('⚠ A hawk has been spotted!')
+        else if (es.foxActive && !fox.isActive) showAlert('⚠ A fox is lurking nearby!')
+        hawk.applyRemoteState(es.hx, es.hy, es.hz, es.hry, es.hawkActive)
+        fox.applyRemoteState(es.fx, es.fy, es.fz, es.fry, es.foxActive, es.foxStalking)
+      }
     }
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -160,7 +184,7 @@ async function startGame() {
 // Host button
 const hostBtn = document.getElementById('hostBtn')! as HTMLButtonElement
 hostBtn.addEventListener('click', () => {
-  if (hostBtn.dataset.ready === '1') { startGame(); return }
+  if (hostBtn.dataset.ready === '1') { isHost = true; startGame(); return }
 
   statusEl.style.color = ''
   setStatus('Connecting to signaling server')

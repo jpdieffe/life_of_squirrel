@@ -58,6 +58,16 @@ export interface PlayerState {
   crouch?: boolean
 }
 
+/** Enemy positions synced from host to joiner */
+export interface EnemyState {
+  hawkActive: boolean
+  hx: number; hy: number; hz: number; hry: number
+  foxActive: boolean
+  fx: number; fy: number; fz: number; fry: number
+  foxStalking: boolean
+}
+
 /** Network message envelope */
 export type NetMessage =
   | { type: 'state'; state: PlayerState }
+  | { type: 'enemy'; data: EnemyState }

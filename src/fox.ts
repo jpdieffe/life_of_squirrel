@@ -31,6 +31,7 @@ const WANDER_BOUND       = 50      // m from origin: fox wanders within this box
 const GROUND_Y_MAX       = 1.5     // player y below this = on ground → stalk
 const LOW_FLY_MAX        = 9       // player y below this = flying low → immediate pounce
 const FLEE_RATE          = 3       // m/s: if gap is growing faster than this, player is fleeing
+const CROUCH_AGGRO_RADIUS = 8      // fox can barely see a crouching player within this range
 
 type FoxAnim  = 'idle' | 'run' | 'sneak' | 'jump'
 type FoxState = 'idle' | 'running' | 'stalking' | 'chasing' | 'pouncing' | 'cooldown'
@@ -171,17 +172,17 @@ export class Fox {
 
   // ── State handlers ───────────────────────────────────────────────────────────
 
-  private updateIdle(dt: number, playerPos: Vector3) {
+  private updateIdle(dt: number, playerPos: Vector3, playerCrouching: boolean) {
     this.idleTimer -= dt
     if (this.idleTimer <= 0) {
       this.state = 'running'
       this.pickNewWaypoint()
       this.switchAnim('run')
     }
-    this.checkAggro(playerPos)
+    this.checkAggro(playerPos, playerCrouching)
   }
 
-  private updateRunning(dt: number, playerPos: Vector3) {
+  private updateRunning(dt: number, playerPos: Vector3, playerCrouching: boolean) {
     const dx = this.waypoint.x - this.pos.x
     const dz = this.waypoint.z - this.pos.z
     const dist = Math.sqrt(dx * dx + dz * dz)
@@ -195,15 +196,16 @@ export class Fox {
     this.pos.x += (dx / len) * WANDER_SPEED * dt
     this.pos.z += (dz / len) * WANDER_SPEED * dt
     this.facingY = Math.atan2(dx, dz)
-    this.checkAggro(playerPos)
+    this.checkAggro(playerPos, playerCrouching)
   }
 
-  private checkAggro(playerPos: Vector3) {
+  private checkAggro(playerPos: Vector3, playerCrouching: boolean) {
     if (playerPos.y > LOW_FLY_MAX) return  // too high, ignore
     const dx   = playerPos.x - this.pos.x
     const dz   = playerPos.z - this.pos.z
     const dist = Math.sqrt(dx * dx + dz * dz)
-    if (dist > AGGRO_RADIUS) return
+    const effectiveRadius = playerCrouching ? CROUCH_AGGRO_RADIUS : AGGRO_RADIUS
+    if (dist > effectiveRadius) return
     if (playerPos.y > GROUND_Y_MAX) {
       // Flying low → pounce immediately
       this.startPounce(playerPos)
@@ -316,11 +318,11 @@ export class Fox {
 
   // ── Public update ────────────────────────────────────────────────────────────
 
-  update(dt: number, playerPos: Vector3, health: HealthSystem) {
+  update(dt: number, playerPos: Vector3, health: HealthSystem, playerCrouching = false) {
     if (!this.active) return
     switch (this.state) {
-      case 'idle':     this.updateIdle(dt, playerPos); break
-      case 'running':  this.updateRunning(dt, playerPos); break
+      case 'idle':     this.updateIdle(dt, playerPos, playerCrouching); break
+      case 'running':  this.updateRunning(dt, playerPos, playerCrouching); break
       case 'stalking': this.updateStalking(dt, playerPos); break
       case 'chasing':  this.updateChasing(dt, playerPos); break
       case 'pouncing': this.updatePouncing(dt, playerPos, health); break
@@ -335,6 +337,37 @@ export class Fox {
     }
 
     // Apply transparency every frame based on current state
+    this.applyTransparency()
+  }
+
+  // ── Remote rendering (joiner only) ───────────────────────────────────────────
+
+  get isActive()    { return this.active }
+  get posX()        { return this.pos.x }
+  get posY()        { return this.pos.y }
+  get posZ()        { return this.pos.z }
+  get facingAngle() { return this.facingY }
+  get isStalking()  { return this.state === 'stalking' }
+
+  applyRemoteState(x: number, y: number, z: number, ry: number, active: boolean, stalking: boolean) {
+    if (!active) {
+      if (this.active) this.setActive(false)
+      return
+    }
+    if (!this.active) {
+      this.active = true
+      this.switchAnim(stalking ? 'sneak' : 'run')
+    } else if (stalking !== (this.currentAnim === 'sneak')) {
+      this.switchAnim(stalking ? 'sneak' : 'run')
+    }
+    this.state = stalking ? 'stalking' : 'running'
+    this.pos.set(x, y, z)
+    this.facingY = ry
+    for (const entry of Object.values(this.entries)) {
+      if (!entry) continue
+      entry.root.position.set(x, y + entry.yOffset, z)
+      entry.root.rotation.y = ry
+    }
     this.applyTransparency()
   }
 }

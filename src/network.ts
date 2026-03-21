@@ -1,6 +1,6 @@
 import Peer from 'peerjs'
 import type { DataConnection } from 'peerjs'
-import type { NetMessage, PlayerState } from './types'
+import type { NetMessage, PlayerState, EnemyState } from './types'
 
 const FRUITS = [
   'apple','apricot','avocado','banana','berry','cherry','clementine',
@@ -29,6 +29,9 @@ export class Network {
 
   /** Latest position received from the remote player (null until first packet) */
   lastRemoteState: PlayerState | null = null
+
+  /** Latest enemy state received from host (null until first packet) */
+  lastRemoteEnemyState: EnemyState | null = null
 
   /** Called when a P2P connection is fully established */
   onPeerConnected: (() => void) | null = null
@@ -117,6 +120,8 @@ export class Network {
       const msg = raw as NetMessage
       if (msg.type === 'state') {
         this.lastRemoteState = msg.state
+      } else if (msg.type === 'enemy') {
+        this.lastRemoteEnemyState = msg.data
       }
     })
     // 'open' handled by host()/join() directly — not here, to avoid duplicate calls
@@ -132,6 +137,13 @@ export class Network {
   sendPosition(state: PlayerState) {
     if (this.conn?.open) {
       const msg: NetMessage = { type: 'state', state }
+      this.conn.send(msg)
+    }
+  }
+
+  sendEnemyState(data: EnemyState) {
+    if (this.conn?.open) {
+      const msg: NetMessage = { type: 'enemy', data }
       this.conn.send(msg)
     }
   }
