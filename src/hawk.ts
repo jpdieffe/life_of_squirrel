@@ -55,6 +55,7 @@ export class Hawk {
   private flapAnimTimer = 0
   private aggroCooldown = 0      // prevents immediate re-dive after returning
   private glideYOffset  = 0     // set after glide model loads; lifts root above pos
+  private active        = false
   private shadowDisc!: Mesh
 
   constructor(
@@ -73,6 +74,33 @@ export class Hawk {
     shadowMat.backFaceCulling = false
     this.shadowDisc.material = shadowMat
     this.shadowDisc.isPickable = false
+    this.shadowDisc.isVisible   = false  // hidden until wave activates
+  }
+
+  // ── Activation ───────────────────────────────────────────────────────────────
+
+  setActive(on: boolean) {
+    this.active = on
+    if (!on) {
+      for (const entry of Object.values(this.entries)) {
+        entry?.root.getChildMeshes(false).forEach(m => { m.isVisible = false })
+        entry?.group?.stop()
+      }
+      this.shadowDisc.isVisible = false
+      // Reset for next wave
+      this.patrolAngle  = Math.random() * Math.PI * 2
+      this.pos.set(
+        Math.cos(this.patrolAngle) * PATROL_RADIUS,
+        PATROL_HEIGHT,
+        Math.sin(this.patrolAngle) * PATROL_RADIUS,
+      )
+      this.state         = 'patrol'
+      this.aggroCooldown = 0
+    } else {
+      this.shadowDisc.isVisible = true
+      this.state = 'patrol'
+      this.switchAnim('glide')
+    }
   }
 
   // ── Asset loading ────────────────────────────────────────────────────────────
@@ -276,6 +304,7 @@ export class Hawk {
   // ── Public update ────────────────────────────────────────────────────────────
 
   update(dt: number, playerPos: Vector3, health: HealthSystem, playerCrouching = false) {
+    if (!this.active) return
     switch (this.state) {
       case 'patrol':    this.updatePatrol(dt, playerPos, playerCrouching); break
       case 'dive':      this.updateDive(dt, playerPos, health, playerCrouching); break

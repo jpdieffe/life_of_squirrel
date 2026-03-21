@@ -74,6 +74,36 @@ async function startGame() {
     setTimeout(() => player.respawn(), 2000)
   }
 
+  // ── Wave manager ─────────────────────────────────────────────────────────────
+  const PEACE_DURATION  = 60   // s of calm before an enemy appears
+  const ALERT_DURATION  = 5    // s the warning banner is shown
+  const ACTIVE_DURATION = 60   // s the enemy is active
+
+  type WavePhase = 'peace' | 'alerting' | 'active'
+  let wavePhase: WavePhase    = 'peace'
+  let waveTimer               = PEACE_DURATION
+  let activeEnemy: 'hawk' | 'fox' | null = null
+
+  const alertEl = document.getElementById('enemyAlert')!
+
+  function pickEnemy(): 'hawk' | 'fox' {
+    return Math.random() < 0.5 ? 'hawk' : 'fox'
+  }
+
+  function showAlert(msg: string) {
+    alertEl.textContent = msg
+    alertEl.classList.remove('enemy-alert-show')
+    void alertEl.offsetWidth          // force reflow to restart animation
+    alertEl.classList.add('enemy-alert-show')
+  }
+
+  function deactivateActive() {
+    if (activeEnemy === 'hawk') hawk.setActive(false)
+    else if (activeEnemy === 'fox') fox.setActive(false)
+    activeEnemy = null
+  }
+  // ─────────────────────────────────────────────────────────────────────────────
+
   const SEND_INTERVAL = 1 / 20
   let sendTimer = 0
 
@@ -81,9 +111,34 @@ async function startGame() {
     const dt = Math.min(engine.getDeltaTime() / 1000, 0.05)
 
     player.update(dt)
-    hawk.update(dt, player.position, player.health, player.isCrouching)
-    fox.update(dt, player.position, player.health)
     world.updateLeafFade(player.position, player.camera.position)
+
+    // ── Wave tick ─────────────────────────────────────────────────────────────
+    waveTimer -= dt
+    if (wavePhase === 'peace' && waveTimer <= 0) {
+      wavePhase = 'alerting'
+      waveTimer = ALERT_DURATION
+      activeEnemy = pickEnemy()
+      showAlert(activeEnemy === 'hawk'
+        ? '⚠ A hawk has been spotted!'
+        : '⚠ A fox is lurking nearby!')
+    } else if (wavePhase === 'alerting' && waveTimer <= 0) {
+      wavePhase = 'active'
+      waveTimer = ACTIVE_DURATION
+      if (activeEnemy === 'hawk') hawk.setActive(true)
+      else if (activeEnemy === 'fox') fox.setActive(true)
+    } else if (wavePhase === 'active' && waveTimer <= 0) {
+      deactivateActive()
+      wavePhase = 'peace'
+      waveTimer = PEACE_DURATION
+    }
+
+    // Only tick the currently active enemy
+    if (wavePhase === 'active') {
+      if (activeEnemy === 'hawk') hawk.update(dt, player.position, player.health, player.isCrouching)
+      else if (activeEnemy === 'fox') fox.update(dt, player.position, player.health)
+    }
+    // ─────────────────────────────────────────────────────────────────────────
 
     sendTimer += dt
     if (sendTimer >= SEND_INTERVAL) {

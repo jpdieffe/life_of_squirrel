@@ -61,13 +61,36 @@ export class Fox {
   private hitDealt       = false
 
   private cooldownTimer  = 0
+  private active         = false
 
   constructor(private readonly scene: Scene) {
     this.loadAnims()
     this.pickNewWaypoint()
   }
 
-  // ── Asset loading ────────────────────────────────────────────────────────────
+  // ── Activation ──────────────────────────────────────────────────────────────────
+
+  setActive(on: boolean) {
+    this.active = on
+    if (!on) {
+      for (const entry of Object.values(this.entries)) {
+        entry?.root.getChildMeshes(false).forEach(m => { m.isVisible = false })
+        entry?.group?.stop()
+      }
+      this.state = 'idle'
+    } else {
+      // Spawn at a random edge position so the fox enters from off-screen
+      const angle = Math.random() * Math.PI * 2
+      this.pos.set(Math.cos(angle) * 40, 0, Math.sin(angle) * 40)
+      this.state     = 'idle'
+      this.idleTimer = 1.5
+      this.prevDist  = 999
+      this.pickNewWaypoint()
+      this.switchAnim('idle')
+    }
+  }
+
+  // ── Asset loading ──────────────────────────────────────────────────────────────────
 
   private async loadAnims() {
     const files: Record<FoxAnim, string> = {
@@ -294,6 +317,7 @@ export class Fox {
   // ── Public update ────────────────────────────────────────────────────────────
 
   update(dt: number, playerPos: Vector3, health: HealthSystem) {
+    if (!this.active) return
     switch (this.state) {
       case 'idle':     this.updateIdle(dt, playerPos); break
       case 'running':  this.updateRunning(dt, playerPos); break
