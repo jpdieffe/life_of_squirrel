@@ -7,6 +7,9 @@ import {
   AbstractMesh,
   AnimationGroup,
   Mesh,
+  MeshBuilder,
+  StandardMaterial,
+  Color3,
 } from '@babylonjs/core'
 import type { HealthSystem } from './health'
 
@@ -49,12 +52,24 @@ export class Hawk {
   private flapTimer     = 1.5    // time until next patrol flap
   private flapAnimTimer = 0
   private aggroCooldown = 0      // prevents immediate re-dive after returning
+  private shadowDisc!: Mesh
 
   constructor(
     private readonly scene: Scene,
     private readonly leaves: Mesh[],
   ) {
     this.loadAnims()
+
+    // Blob shadow on the ground — grows faint/large when hawk is high, sharp/small when diving
+    this.shadowDisc = MeshBuilder.CreateDisc('hawkShadow', { radius: 1, tessellation: 32 }, scene)
+    this.shadowDisc.rotation.x = Math.PI / 2
+    this.shadowDisc.position.y = 0.05
+    const shadowMat = new StandardMaterial('hawkShadowMat', scene)
+    shadowMat.diffuseColor = new Color3(0, 0, 0)
+    shadowMat.alpha = 0.3
+    shadowMat.backFaceCulling = false
+    this.shadowDisc.material = shadowMat
+    this.shadowDisc.isPickable = false
   }
 
   // ── Asset loading ────────────────────────────────────────────────────────────
@@ -232,5 +247,14 @@ export class Hawk {
       entry.root.position.set(this.pos.x, this.pos.y + entry.yOffset, this.pos.z)
       entry.root.rotation.y = this.facingY
     }
+
+    // Shadow disc: small + dark when close to ground, large + faint when high up
+    const heightFrac = Math.max(0, Math.min(1.2, this.pos.y / PATROL_HEIGHT))
+    this.shadowDisc.position.x = this.pos.x
+    this.shadowDisc.position.z = this.pos.z
+    this.shadowDisc.scaling.x  = 1.5 + heightFrac * 3.5
+    this.shadowDisc.scaling.z  = this.shadowDisc.scaling.x
+    ;(this.shadowDisc.material as StandardMaterial).alpha =
+      Math.max(0.02, 0.65 - heightFrac * 0.58)
   }
 }

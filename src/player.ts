@@ -51,7 +51,7 @@ const FLAP_SPEED_RATIO = 2.5  // playback speed multiplier for flap animation
 const GLIDE_GRAVITY   = -2.5  // gravity m/s² while holding space as gull
 const GULL_MOVE_SPEED    = 6      // m/s horizontal for gull on the ground
 const GULL_FLY_SPEED     = 36     // m/s horizontal for gull in the air (6×)
-const SPRINT_SPEED       = MOVE_SPEED * 2   // 16 m/s while sprinting
+const SPRINT_SPEED       = MOVE_SPEED * 4   // 32 m/s while sprinting
 const STAMINA_DRAIN_RATE = 1.0 / 4.0       // fully drained in 4 s of sprinting
 const STAMINA_REGEN_RATE = 1.0 / 3.0       // fully recovered in 3 s (after delay)
 const SPRINT_REGEN_DELAY = 5.0             // seconds before regen kicks in
@@ -95,6 +95,7 @@ export class Player {
   private flapAnimTimer = 0
   private stamina           = 1.0
   private staminaRegenDelay = 0
+  private desiredRadius     = 14   // scroll zoom target; actual radius shrinks when looking up
 
   private readonly keys: Record<string, boolean> = {}
   private readonly buildings: BuildingDef[]
@@ -135,7 +136,7 @@ export class Player {
     })
 
     canvas.addEventListener('wheel', e => {
-      this.camera.radius = Math.max(4, Math.min(28, this.camera.radius + e.deltaY * 0.02))
+      this.desiredRadius = Math.max(4, Math.min(28, this.desiredRadius + e.deltaY * 0.02))
     }, { passive: true })
 
     window.addEventListener('keydown', e => { this.keys[e.code] = true })
@@ -327,10 +328,16 @@ export class Player {
     }
 
     this.camera.target.copyFrom(this.mesh.position)
-    // Keep camera from dipping below ground when looking up
-    const maxBetaGround = Math.acos(Math.max(-0.999,
-      (0.3 - this.camera.target.y) / this.camera.radius))
-    if (this.camera.beta > maxBetaGround) this.camera.beta = maxBetaGround
+    // When looking up (beta > PI/2, cos < 0), shrink radius so camera stays above y=0.3
+    // rather than clamping beta — lets the player look straight up by zooming in
+    const cosBeta = Math.cos(this.camera.beta)
+    if (cosBeta < 0) {
+      // camera.y = targetY + radius * cosBeta >= 0.3  =>  radius <= (0.3 - targetY) / cosBeta
+      const maxR = (0.3 - this.camera.target.y) / cosBeta
+      this.camera.radius = Math.min(this.desiredRadius, Math.max(2, maxR))
+    } else {
+      this.camera.radius = this.desiredRadius
+    }
 
     this.health.update(dt)
 
