@@ -545,7 +545,7 @@ export class World {
           const scale = fd.targetH / rawH
           root.scaling.setAll(scale)
 
-          // After scaling, re-measure so feet sit at fd.y
+          // Position root so feet sit at fd.y
           scene.incrementRenderId()
           result.meshes.forEach((m: AbstractMesh) => m.computeWorldMatrix(true))
           let minY2 = Infinity
@@ -557,6 +557,33 @@ export class World {
 
           root.position.set(fd.x, fd.y + yOffset, fd.z)
           if (fd.ry) root.rotation.y = fd.ry
+
+          // Measure full world-space AABB after final position + rotation,
+          // and push a solid collision box so the player can stand on furniture.
+          scene.incrementRenderId()
+          result.meshes.forEach((m: AbstractMesh) => m.computeWorldMatrix(true))
+          let wMinX = Infinity, wMaxX = -Infinity
+          let wMinY2 = Infinity, wMaxY2 = -Infinity
+          let wMinZ = Infinity, wMaxZ = -Infinity
+          result.meshes.forEach((m: AbstractMesh) => {
+            const bb = m.getBoundingInfo().boundingBox
+            if (bb.minimumWorld.x < wMinX)  wMinX  = bb.minimumWorld.x
+            if (bb.maximumWorld.x > wMaxX)  wMaxX  = bb.maximumWorld.x
+            if (bb.minimumWorld.y < wMinY2) wMinY2 = bb.minimumWorld.y
+            if (bb.maximumWorld.y > wMaxY2) wMaxY2 = bb.maximumWorld.y
+            if (bb.minimumWorld.z < wMinZ)  wMinZ  = bb.minimumWorld.z
+            if (bb.maximumWorld.z > wMaxZ)  wMaxZ  = bb.maximumWorld.z
+          })
+          if (isFinite(wMinX) && isFinite(wMaxX) && isFinite(wMinZ)) {
+            collision.push({
+              x:      (wMinX + wMaxX) / 2,
+              z:      (wMinZ + wMaxZ) / 2,
+              y:      wMinY2,
+              width:  wMaxX - wMinX,
+              depth:  wMaxZ - wMinZ,
+              height: wMaxY2 - wMinY2,
+            })
+          }
         })
         .catch(err => console.warn('[House] furniture load failed:', fd.file, err))
     }
