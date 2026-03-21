@@ -65,45 +65,51 @@ interface BranchSpec {
 }
 
 const BRANCHES: BranchSpec[] = [
-  // Tier 1  top  4.5
-  { angle:  Math.PI/2,        attachY:  3, length: 5.5, tipY:  4.5, snake:  1, padW: 5.0, padD: 1.6 },
-  { angle: -Math.PI/2,        attachY:  3, length: 5.5, tipY:  4.5, snake: -1, padW: 5.0, padD: 1.6 },
-  { angle:  0,                attachY:  3, length: 5.5, tipY:  4.5, snake: -1, padW: 1.6, padD: 5.0 },
-  { angle:  Math.PI,          attachY:  3, length: 5.5, tipY:  4.5, snake:  1, padW: 1.6, padD: 5.0 },
+  // ── Tier 1  tip heights 5.5–7.0  (reachable from ground) ────────────────
+  { angle:  0.35, attachY:  3.5, length: 10.0, tipY:  6.5, snake:  1, padW: 5.0, padD: 1.8 },
+  { angle:  2.20, attachY:  4.0, length: 12.5, tipY:  5.5, snake: -1, padW: 4.5, padD: 1.6 },
+  { angle: -1.10, attachY:  3.0, length:  9.0, tipY:  7.0, snake:  1, padW: 5.5, padD: 1.8 },
+  { angle:  3.70, attachY:  4.5, length: 11.0, tipY:  6.0, snake: -1, padW: 4.8, padD: 1.6 },
+  { angle:  1.20, attachY:  3.0, length: 13.0, tipY:  5.8, snake:  1, padW: 5.2, padD: 1.7 },
 
-  // Tier 2  top  12.0
-  { angle:  Math.PI/2,        attachY: 10, length: 5.0, tipY: 12.0, snake: -1, padW: 4.5, padD: 1.6 },
-  { angle: -Math.PI/2,        attachY: 10, length: 5.0, tipY: 12.0, snake:  1, padW: 4.5, padD: 1.6 },
-  { angle:  0,                attachY: 10, length: 5.0, tipY: 12.0, snake:  1, padW: 1.6, padD: 4.5 },
-  { angle:  Math.PI,          attachY: 10, length: 5.0, tipY: 12.0, snake: -1, padW: 1.6, padD: 4.5 },
+  // ── Tier 2  tip heights 11.0–13.0 ────────────────────────────────────────
+  { angle:  0.80, attachY:  9.5, length: 11.0, tipY: 12.0, snake: -1, padW: 4.5, padD: 1.7 },
+  { angle: -2.50, attachY: 10.0, length: 14.0, tipY: 12.5, snake:  1, padW: 5.0, padD: 1.6 },
+  { angle:  1.75, attachY:  8.5, length: 10.0, tipY: 11.0, snake:  1, padW: 4.8, padD: 1.6 },
+  { angle: -0.40, attachY: 10.5, length: 13.0, tipY: 13.0, snake: -1, padW: 5.2, padD: 1.8 },
+  { angle:  3.00, attachY:  9.0, length:  9.5, tipY: 11.5, snake:  1, padW: 4.5, padD: 1.7 },
 
-  // Tier 3  top  21.0
-  { angle:  Math.PI/2,        attachY: 19, length: 6.5, tipY: 21.0, snake:  1, padW: 5.5, padD: 1.8 },
-  { angle: -Math.PI/2,        attachY: 19, length: 6.5, tipY: 21.0, snake: -1, padW: 5.5, padD: 1.8 },
-  { angle:  0,                attachY: 19, length: 6.5, tipY: 21.0, snake: -1, padW: 1.8, padD: 5.5 },
-  { angle:  Math.PI,          attachY: 19, length: 6.5, tipY: 21.0, snake:  1, padW: 1.8, padD: 5.5 },
+  // ── Tier 3  tip heights 17.5–19.5 ────────────────────────────────────────
+  { angle: -0.60, attachY: 15.5, length: 12.0, tipY: 18.0, snake: -1, padW: 5.0, padD: 1.8 },
+  { angle:  2.70, attachY: 17.0, length: 14.5, tipY: 19.5, snake:  1, padW: 4.8, padD: 1.7 },
+  { angle:  1.00, attachY: 16.0, length: 11.5, tipY: 17.5, snake: -1, padW: 5.5, padD: 1.6 },
+  { angle: -1.90, attachY: 15.0, length: 10.0, tipY: 18.5, snake:  1, padW: 4.5, padD: 1.8 },
+  { angle:  3.80, attachY: 16.5, length: 13.0, tipY: 19.0, snake: -1, padW: 5.0, padD: 1.7 },
 
-  // Tier 4  top  31.5
-  { angle:  Math.PI/2 + 0.15, attachY: 28, length: 5.5, tipY: 31.5, snake: -1, padW: 4.5, padD: 1.6 },
-  { angle: -Math.PI/2 + 0.15, attachY: 28, length: 5.5, tipY: 31.5, snake:  1, padW: 4.5, padD: 1.6 },
-  { angle:  0.15,             attachY: 28, length: 5.5, tipY: 31.5, snake:  1, padW: 1.6, padD: 4.5 },
-  { angle:  Math.PI + 0.15,   attachY: 28, length: 5.5, tipY: 31.5, snake: -1, padW: 1.6, padD: 4.5 },
+  // ── Tier 4  tip heights 24.0–26.0 ────────────────────────────────────────
+  { angle:  0.20, attachY: 22.5, length: 13.0, tipY: 25.0, snake:  1, padW: 4.5, padD: 1.7 },
+  { angle: -1.60, attachY: 23.0, length: 11.0, tipY: 24.0, snake: -1, padW: 5.0, padD: 1.6 },
+  { angle:  2.40, attachY: 22.0, length: 14.0, tipY: 25.5, snake:  1, padW: 4.8, padD: 1.8 },
+  { angle: -0.95, attachY: 24.0, length: 12.5, tipY: 26.0, snake: -1, padW: 5.2, padD: 1.7 },
+  { angle:  3.30, attachY: 22.5, length: 10.5, tipY: 24.5, snake:  1, padW: 4.5, padD: 1.6 },
 
-  // Tier 5  top  42.0
-  { angle:  Math.PI/2 - 0.2,  attachY: 38, length: 5.0, tipY: 42.0, snake:  1, padW: 4.0, padD: 1.5 },
-  { angle: -Math.PI/2 - 0.2,  attachY: 38, length: 5.0, tipY: 42.0, snake: -1, padW: 4.0, padD: 1.5 },
-  { angle: -0.2,              attachY: 38, length: 5.0, tipY: 42.0, snake: -1, padW: 1.5, padD: 4.0 },
-  { angle:  Math.PI - 0.2,    attachY: 38, length: 5.0, tipY: 42.0, snake:  1, padW: 1.5, padD: 4.0 },
+  // ── Tier 5  tip heights 30.5–32.5 ────────────────────────────────────────
+  { angle:  1.40, attachY: 29.0, length: 12.0, tipY: 31.0, snake: -1, padW: 4.2, padD: 1.6 },
+  { angle: -2.10, attachY: 30.5, length: 13.5, tipY: 32.5, snake:  1, padW: 4.5, padD: 1.7 },
+  { angle:  0.55, attachY: 28.5, length: 11.0, tipY: 30.5, snake:  1, padW: 4.8, padD: 1.6 },
+  { angle:  3.10, attachY: 30.0, length: 14.0, tipY: 32.0, snake: -1, padW: 4.3, padD: 1.8 },
+  { angle: -0.30, attachY: 29.5, length: 10.5, tipY: 31.5, snake: -1, padW: 4.5, padD: 1.7 },
 
-  // Tier 6 / Crown  top  53.0
-  { angle:  Math.PI/2,        attachY: 50, length: 4.5, tipY: 53.0, snake: -1, padW: 3.5, padD: 1.5 },
-  { angle: -Math.PI/2,        attachY: 50, length: 4.5, tipY: 53.0, snake:  1, padW: 3.5, padD: 1.5 },
-  { angle:  0,                attachY: 50, length: 4.5, tipY: 53.0, snake:  1, padW: 1.5, padD: 3.5 },
-  { angle:  Math.PI,          attachY: 50, length: 4.5, tipY: 53.0, snake: -1, padW: 1.5, padD: 3.5 },
+  // ── Tier 6  tip heights 36.5–40.0 ────────────────────────────────────────
+  { angle:  2.00, attachY: 37.0, length: 11.5, tipY: 39.0, snake:  1, padW: 4.0, padD: 1.6 },
+  { angle: -1.35, attachY: 36.5, length: 13.0, tipY: 38.0, snake: -1, padW: 4.2, padD: 1.7 },
+  { angle:  0.70, attachY: 38.0, length: 10.0, tipY: 40.0, snake:  1, padW: 4.5, padD: 1.6 },
+  { angle: -2.80, attachY: 36.0, length: 12.5, tipY: 37.5, snake: -1, padW: 4.0, padD: 1.8 },
+  { angle:  1.85, attachY: 37.5, length:  9.5, tipY: 39.5, snake:  1, padW: 4.2, padD: 1.7 },
 ]
 
 // Mid-height Y of each tier  for leaf cluster placement
-const TIER_Y = [4.5, 12.0, 21.0, 31.5, 42.0, 53.0]
+const TIER_Y = [6.0, 12.0, 18.5, 25.0, 31.5, 38.0]
 
 export class World {
   readonly buildings: BuildingDef[]
@@ -167,14 +173,14 @@ export class World {
       const ctrl: Vector3[] = [
         start.clone(),
         new Vector3(
-          start.x + dx * 0.30 + perpX * 0.80,
-          br.attachY + (padY - br.attachY) * 0.25 + 0.9,
-          start.z + dz * 0.30 + perpZ * 0.80,
+          start.x + dx * 0.30 + perpX * 1.30,
+          br.attachY + (padY - br.attachY) * 0.25 + 1.4,
+          start.z + dz * 0.30 + perpZ * 1.30,
         ),
         new Vector3(
-          start.x + dx * 0.65 - perpX * 0.55,
-          br.attachY + (padY - br.attachY) * 0.65 - 0.4,
-          start.z + dz * 0.65 - perpZ * 0.55,
+          start.x + dx * 0.65 - perpX * 0.90,
+          br.attachY + (padY - br.attachY) * 0.65 - 0.7,
+          start.z + dz * 0.65 - perpZ * 0.90,
         ),
         new Vector3(endX, padY + 0.15, endZ),
       ]
@@ -209,16 +215,16 @@ export class World {
 
     //  Leaf clusters 
     TIER_Y.forEach((ty, ti) => {
-      const count = 5
+      const count = 8
       for (let j = 0; j < count; j++) {
-        const a = (j / count) * Math.PI * 2 + ti * 0.55
-        const r = 3.0 + (j % 3) * 1.2
+        const a = (j / count) * Math.PI * 2 + ti * 0.73
+        const r = 2.5 + (j % 4) * 2.8
         const sphere = MeshBuilder.CreateSphere(`leaf_${ti}_${j}`, {
-          diameter: 5.5 + (j % 2) * 1.8,
+          diameter: 5.0 + (j % 3) * 2.2,
           segments: 6,
         }, scene)
-        sphere.scaling.y = 0.55
-        sphere.position.set(Math.cos(a) * r, ty + 1.5 + (j % 3) * 0.6, Math.sin(a) * r)
+        sphere.scaling.y = 0.52
+        sphere.position.set(Math.cos(a) * r, ty + 1.5 + (j % 3) * 0.8, Math.sin(a) * r)
         const lMat = new StandardMaterial(`lmat_${ti}_${j}`, scene)
         lMat.diffuseColor = j % 2 === 0 ? C_LEAF_A : C_LEAF_B
         lMat.backFaceCulling = false
@@ -228,9 +234,9 @@ export class World {
     })
 
     // Big crown canopy
-    const crown = MeshBuilder.CreateSphere('crown', { diameter: 14, segments: 8 }, scene)
+    const crown = MeshBuilder.CreateSphere('crown', { diameter: 16, segments: 8 }, scene)
     crown.scaling.y = 0.65
-    crown.position.set(0, 57, 0)
+    crown.position.set(0, 44, 0)
     const cMat = new StandardMaterial('crownMat', scene)
     cMat.diffuseColor = C_LEAF_A
     cMat.backFaceCulling = false
