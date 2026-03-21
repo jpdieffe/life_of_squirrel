@@ -49,9 +49,11 @@ export class BuildingSystem {
     if (!this.active) return
     const rawX = playerPos.x + Math.sin(facingAngle) * REACH
     const rawZ = playerPos.z + Math.cos(facingAngle) * REACH
+    // Snap Y to the nearest block-grid level at or above the player's feet
+    const baseY = Math.round(playerPos.y / BLOCK_SIZE) * BLOCK_SIZE
     this.snapPos.set(
       Math.round(rawX / BLOCK_SIZE) * BLOCK_SIZE,
-      BLOCK_SIZE / 2,   // box origin is at centre, so bottom sits at y=0
+      baseY + BLOCK_SIZE / 2,   // box origin is at centre
       Math.round(rawZ / BLOCK_SIZE) * BLOCK_SIZE,
     )
     this.preview.position.copyFrom(this.snapPos)
@@ -78,9 +80,9 @@ export class BuildingSystem {
     const mat = new StandardMaterial(`placedMat_${Date.now()}`, this.scene)
     mat.diffuseColor = new Color3(0.63, 0.47, 0.27)   // warm wood colour
     mesh.material    = mat
-    mesh.position.set(px, BLOCK_SIZE / 2, pz)
+    const py = this.snapPos.y - BLOCK_SIZE / 2   // bottom of block
+    mesh.position.set(px, this.snapPos.y, pz)
 
-    // Floor-anchored BuildingDef (y omitted → defaults to 0, full AABB collision)
-    return { x: px, z: pz, width: BLOCK_SIZE, depth: BLOCK_SIZE, height: BLOCK_SIZE }
+    return { x: px, z: pz, y: py, width: BLOCK_SIZE, depth: BLOCK_SIZE, height: BLOCK_SIZE }
   }
 }
