@@ -4,7 +4,7 @@ export class HealthSystem {
 
   private invulnerable = false
   private invulTimer   = 0
-  private readonly INV_DURATION = 2.5   // seconds of invulnerability after a hit
+  private readonly INV_DURATION = 5.0   // seconds of invulnerability after a hit
 
   onDeath: (() => void) | null = null
 

@@ -4,6 +4,7 @@ import { Player } from './player'
 import { RemotePlayer } from './remote'
 import { Network } from './network'
 import { DebugPanel } from './debug'
+import { Hawk } from './hawk'
 
 const canvas      = document.getElementById('renderCanvas') as HTMLCanvasElement
 const lobbyEl     = document.getElementById('lobby')!
@@ -50,6 +51,7 @@ async function startGame() {
   const world      = new World(scene)
   const player     = new Player(scene, world.buildings)
   const remote     = new RemotePlayer(scene)
+  const hawk       = new Hawk(scene, world.leaves)
   const debugPanel = new DebugPanel(canvas)
   debugPanel.onSwitchCharacter = () => {
     const next = player.getState().char === 'gull' ? 'squirrel' : 'gull'
@@ -69,6 +71,7 @@ async function startGame() {
     const dt = Math.min(engine.getDeltaTime() / 1000, 0.05)
 
     player.update(dt)
+    hawk.update(dt, player.position, player.health)
     world.updateLeafFade(player.position, player.camera.position)
 
     sendTimer += dt
