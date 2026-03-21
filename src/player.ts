@@ -16,7 +16,7 @@ import type { BuildingDef, PlayerState, AnimState } from './types'
 import { HealthSystem } from './health'
 
 const GRAVITY       = -28    // m/s^2
-const JUMP_VELOCITY =  20    // m/s upward on jump
+const JUMP_VELOCITY =  26    // m/s upward on jump  (20 × 1.3)
 const MOVE_SPEED    =   8    // m/s horizontal
 const SNEAK_SPEED   =   3    // m/s while sneaking
 const PLAYER_HEIGHT =   1.8  // metres

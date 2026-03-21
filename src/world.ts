@@ -187,12 +187,12 @@ export class World {
 
       const path = smoothPath(ctrl, 8)
       const n = path.length
-      const startRad = trunkR(br.attachY) * 0.45
-      const endRad   = 0.13
+      const startRad = trunkR(br.attachY) * 0.75  // fatter at trunk
+      const endRad   = 0.45                         // fatter at tip
 
       MeshBuilder.CreateTube(`branch_${i}`, {
         path,
-        tessellation: 7,
+        tessellation: 8,
         radiusFunction: (j) => {
           const t = n > 1 ? j / (n - 1) : 0
           return startRad * (1 - t) + endRad * t
@@ -209,6 +209,20 @@ export class World {
       pad.scaling.z = br.padD / Math.max(br.padW, br.padD)
       pad.position.set(endX, padY + BRANCH_THICKNESS / 2, endZ)
       pad.material = woodMat
+
+      // Walkable collision slabs evenly spaced along the tube body
+      for (let seg = 1; seg <= 5; seg++) {
+        const idx  = Math.min(Math.round(seg * (n - 1) / 5), n - 1)
+        const t    = idx / (n - 1)
+        const r    = startRad * (1 - t) + endRad * t
+        const p    = path[idx]
+        const w    = 2 * r + 0.9   // box covers the tube top plus squirrel margin
+        collision.push({
+          x: p.x, z: p.z,
+          y: p.y + r - BRANCH_THICKNESS,
+          width: w, depth: w, height: BRANCH_THICKNESS,
+        })
+      }
 
       collision.push({ x: endX, z: endZ, y: padY, width: br.padW, depth: br.padD, height: BRANCH_THICKNESS })
     })
