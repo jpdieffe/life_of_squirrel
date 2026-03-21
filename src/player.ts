@@ -258,6 +258,7 @@ export class Player {
   }
 
   private resolveCollisions() {
+    // Ground plane
     if (this.position.y < 0) {
       this.position.y = 0
       if (this.velocity.y < 0) this.velocity.y = 0
@@ -265,6 +266,9 @@ export class Player {
     }
 
     for (const b of this.buildings) {
+      const baseY = b.y ?? 0
+      const topY  = baseY + b.height
+
       const hw = b.width / 2
       const hd = b.depth / 2
       const pL  = this.position.x - PLAYER_RADIUS
@@ -275,18 +279,32 @@ export class Player {
       const pTp = this.position.y + PLAYER_HEIGHT
       const bL  = b.x - hw,  bR  = b.x + hw
       const bBk = b.z - hd,  bFr = b.z + hd
-      const overlapX = Math.min(pR,  bR)       - Math.max(pL,  bL)
-      const overlapY = Math.min(pTp, b.height) - Math.max(pFt, 0)
-      const overlapZ = Math.min(pFr, bFr)      - Math.max(pBk, bBk)
+
+      const overlapX = Math.min(pR,  bR)   - Math.max(pL,  bL)
+      const overlapY = Math.min(pTp, topY) - Math.max(pFt, baseY)
+      const overlapZ = Math.min(pFr, bFr)  - Math.max(pBk, bBk)
+
       if (overlapX <= 0 || overlapY <= 0 || overlapZ <= 0) continue
+
+      // Floating platforms (baseY > 0) are one-way: land on top when descending
+      if (baseY > 0.1) {
+        if (this.velocity.y < 0) {
+          this.position.y = topY
+          this.velocity.y = 0
+          this.onGround = true
+        }
+        continue
+      }
+
+      // Ground-anchored collision — full AABB resolution
       if (overlapY <= overlapX && overlapY <= overlapZ) {
         const playerMidY = pFt + PLAYER_HEIGHT / 2
-        if (playerMidY >= b.height / 2) {
-          this.position.y = b.height
+        if (playerMidY >= topY / 2) {
+          this.position.y = topY
           if (this.velocity.y < 0) this.velocity.y = 0
           this.onGround = true
         } else {
-          this.position.y = -PLAYER_HEIGHT
+          this.position.y = baseY - PLAYER_HEIGHT
           if (this.velocity.y > 0) this.velocity.y = 0
         }
       } else if (overlapX <= overlapZ) {

@@ -1,9 +1,13 @@
-/** Shape of a building in the world */
+/** Shape of a building / platform in the world */
 export interface BuildingDef {
   x: number
   z: number
+  /** Base Y of the collision box.  Defaults to 0 (floor-anchored).
+   *  Platforms with y > 0 are treated as one-way (land from above only). */
+  y?: number
   width: number
   depth: number
+  /** Total height of the box (top surface = y + height) */
   height: number
 }
 

@@ -1,14 +1,5 @@
-﻿import '@babylonjs/loaders/glTF'
-import {
-  Scene,
-  MeshBuilder,
-  StandardMaterial,
-  Color3,
-  Vector3,
-  Mesh,
-  TransformNode,
-} from '@babylonjs/core'
-import type { CharacterClass } from './types'
+﻿// Attacks system not used in Life of Squirrel
+export {}
 
 
 // â”€â”€ Self-managing explosion visual â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

@@ -1,4 +1,4 @@
-import {
+﻿import {
   Scene,
   MeshBuilder,
   StandardMaterial,
@@ -7,103 +7,154 @@ import {
   Vector3,
   HemisphericLight,
   DirectionalLight,
-  TransformNode,
-  SceneLoader,
 } from '@babylonjs/core'
-import type { BuildingDef, MapDef } from './types'
-import '@babylonjs/loaders/glTF'
+import type { BuildingDef } from './types'
 
-// Default map used when no custom map is loaded
-export const DEFAULT_BUILDINGS: BuildingDef[] = [
-  { x:  0,  z:  0,  width:  6, depth:  6, height:  5 },
-  { x: 12,  z:  5,  width:  5, depth:  8, height:  8 },
-  { x: -10, z:  8,  width:  7, depth:  5, height:  3 },
-  { x:  5,  z: -12, width:  4, depth:  4, height: 12 },
-  { x: -8,  z: -10, width:  8, depth:  6, height:  6 },
-  { x: 18,  z: -8,  width:  5, depth:  5, height:  9 },
-  { x: -18, z:  3,  width:  6, depth:  7, height:  4 },
-  { x: 10,  z: 18,  width:  7, depth:  4, height:  7 },
-  { x: -5,  z: 18,  width:  5, depth:  6, height: 10 },
-  { x: 22,  z: 15,  width:  4, depth:  9, height:  5 },
-  { x: -22, z: -12, width:  6, depth:  5, height:  8 },
-  { x:  0,  z: 25,  width:  8, depth:  5, height:  6 },
+//  Colours 
+const C_BARK   = new Color3(0.36, 0.20, 0.07)
+const C_WOOD   = new Color3(0.54, 0.34, 0.13)
+const C_LEAF_A = new Color3(0.13, 0.44, 0.09)
+const C_LEAF_B = new Color3(0.07, 0.30, 0.06)
+const C_GROUND = new Color3(0.24, 0.54, 0.16)
+
+//  Branch-platform data 
+// Each entry: position (x,z), base Y, footprint (w,d).  Thickness is 0.5.
+// All platforms placed so their inner edge touches the trunk (trunk half = 1.0).
+interface PlatDef { x:number; z:number; y:number; w:number; d:number }
+
+const BRANCH_THICKNESS = 0.5
+
+const PLATS: PlatDef[] = [
+  //  Tier 1  top = 4.5  
+  { x:  4.0, z:  0.3, y: 4.0, w: 6.0, d: 1.8 },   // E
+  { x: -4.0, z: -0.3, y: 4.0, w: 6.0, d: 1.8 },   // W
+  { x:  0.3, z:  4.0, y: 4.0, w: 1.8, d: 6.0 },   // N
+  { x: -0.3, z: -4.0, y: 4.0, w: 1.8, d: 6.0 },   // S
+
+  //  Tier 2  top = 12.0  
+  { x:  3.5, z:  0.8, y: 11.5, w: 5.0, d: 2.0 },  // E
+  { x: -3.5, z: -0.8, y: 11.5, w: 5.0, d: 2.0 },  // W
+  { x:  0.8, z:  3.5, y: 11.5, w: 2.0, d: 5.0 },  // N
+  { x: -0.8, z: -3.5, y: 11.5, w: 2.0, d: 5.0 },  // S
+
+  //  Tier 3  top = 21.0  
+  { x:  4.5, z:  0.0, y: 20.5, w: 7.0, d: 1.8 },  // E (long)
+  { x: -4.5, z:  0.0, y: 20.5, w: 7.0, d: 1.8 },  // W (long)
+  { x:  0.0, z:  4.5, y: 20.5, w: 1.8, d: 7.0 },  // N (long)
+  { x:  0.0, z: -4.5, y: 20.5, w: 1.8, d: 7.0 },  // S (long)
+
+  //  Tier 4  top = 31.5  
+  { x:  4.0, z: -1.5, y: 31.0, w: 6.0, d: 1.8 },  // E (south-skewed)
+  { x: -4.0, z:  1.5, y: 31.0, w: 6.0, d: 1.8 },  // W (north-skewed)
+  { x: -1.5, z:  4.0, y: 31.0, w: 1.8, d: 6.0 },  // N (west-skewed)
+  { x:  1.5, z: -4.0, y: 31.0, w: 1.8, d: 6.0 },  // S (east-skewed)
+
+  //  Tier 5  top = 42.0  
+  { x:  3.5, z:  1.0, y: 41.5, w: 5.0, d: 2.0 },
+  { x: -3.5, z: -1.0, y: 41.5, w: 5.0, d: 2.0 },
+  { x: -1.0, z:  3.5, y: 41.5, w: 2.0, d: 5.0 },
+  { x:  1.0, z: -3.5, y: 41.5, w: 2.0, d: 5.0 },
+
+  //  Tier 6  Crown  top = 53.0  
+  { x:  0.0, z:  0.0, y: 52.5, w: 5.5, d: 5.5 },  // centre crown
+  { x:  4.0, z:  0.0, y: 52.5, w: 2.5, d: 1.5 },  // E spoke
+  { x: -4.0, z:  0.0, y: 52.5, w: 2.5, d: 1.5 },  // W spoke
+  { x:  0.0, z:  4.0, y: 52.5, w: 1.5, d: 2.5 },  // N spoke
+  { x:  0.0, z: -4.0, y: 52.5, w: 1.5, d: 2.5 },  // S spoke
 ]
 
-// Keep the BUILDINGS export for backwards compat (monsters.ts etc.)
-export const BUILDINGS = DEFAULT_BUILDINGS
-
-const BUILDING_COLORS = [
-  new Color3(0.62, 0.62, 0.70),
-  new Color3(0.50, 0.55, 0.65),
-  new Color3(0.70, 0.65, 0.58),
-  new Color3(0.55, 0.65, 0.72),
-  new Color3(0.72, 0.60, 0.60),
-]
+// Heights of each tier base (for leaf cluster placement)
+const TIER_Y = [4.0, 11.5, 20.5, 31.0, 41.5, 52.5]
 
 export class World {
   readonly buildings: BuildingDef[]
 
-  constructor(scene: Scene, map?: MapDef) {
-    const buildingList = map?.buildings ?? DEFAULT_BUILDINGS
-    this.buildings = buildingList
-    scene.clearColor = new Color4(0.53, 0.81, 0.98, 1.0) // sky blue
+  constructor(scene: Scene) {
+    scene.clearColor = new Color4(0.55, 0.78, 0.96, 1.0)
 
-    // Soft fill light from above
+    // Lighting
     const hemi = new HemisphericLight('hemi', new Vector3(0, 1, 0), scene)
-    hemi.intensity = 0.5
-
-    // Directional sun
+    hemi.intensity = 0.55
     const sun = new DirectionalLight('sun', new Vector3(-1, -2, -1), scene)
-    sun.intensity = 0.9
-    sun.position = new Vector3(30, 50, 30)
+    sun.intensity = 0.95
+    sun.position = new Vector3(30, 60, 30)
 
-    // Ground
-    const ground = MeshBuilder.CreateGround('ground', { width: 120, height: 120 }, scene)
-    const groundMat = new StandardMaterial('groundMat', scene)
-    groundMat.diffuseColor = new Color3(0.30, 0.50, 0.22)
-    ground.material = groundMat
+    //  Ground 
+    const ground = MeshBuilder.CreateGround('ground', { width: 240, height: 240 }, scene)
+    const gMat = new StandardMaterial('groundMat', scene)
+    gMat.diffuseColor = C_GROUND
+    ground.material = gMat
 
-    // Buildings — mesh center is at height/2 so the base sits on y=0
-    buildingList.forEach((b, i) => {
-      const box = MeshBuilder.CreateBox(`building_${i}`, {
-        width: b.width,
-        depth: b.depth,
-        height: b.height,
+    //  Trunk (visual) 
+    const trunkH = 58
+    const trunk = MeshBuilder.CreateCylinder('trunk', {
+      diameterBottom: 2.2,
+      diameterTop: 0.6,
+      height: trunkH,
+      tessellation: 10,
+    }, scene)
+    trunk.position.set(0, trunkH / 2, 0)
+    const trunkMat = new StandardMaterial('trunkMat', scene)
+    trunkMat.diffuseColor = C_BARK
+    trunk.material = trunkMat
+
+    //  Branch platforms (visual + collision) 
+    const woodMat = new StandardMaterial('woodMat', scene)
+    woodMat.diffuseColor = C_WOOD
+
+    PLATS.forEach((p, i) => {
+      const box = MeshBuilder.CreateBox(`plat_${i}`, {
+        width: p.w,
+        depth: p.d,
+        height: BRANCH_THICKNESS,
       }, scene)
-      box.position.set(b.x, b.height / 2, b.z)
-
-      const mat = new StandardMaterial(`bmat_${i}`, scene)
-      mat.diffuseColor = BUILDING_COLORS[i % BUILDING_COLORS.length]
-      box.material = mat
-
-      // Darker rooftop panel so players can see the top surface clearly
-      const roof = MeshBuilder.CreateBox(`roof_${i}`, {
-        width: b.width,
-        depth: b.depth,
-        height: 0.08,
-      }, scene)
-      roof.position.set(b.x, b.height + 0.04, b.z)
-      const roofMat = new StandardMaterial(`rmat_${i}`, scene)
-      roofMat.diffuseColor = new Color3(0.25, 0.25, 0.30)
-      roof.material = roofMat
+      // Visual centre is at p.y + half-thickness
+      box.position.set(p.x, p.y + BRANCH_THICKNESS / 2, p.z)
+      box.material = woodMat
     })
 
-    // Structures (trees / houses) from map
-    if (map?.structures) {
-      map.structures.forEach((s, i) => {
-        SceneLoader.ImportMeshAsync('', './assets/structures/', `${s.type}.glb`, scene)
-          .then(result => {
-            const root = new TransformNode(`struct_${i}_${s.type}`, scene)
-            result.meshes.forEach(m => { if (!m.parent) m.parent = root })
-            root.position.set(s.x, 0, s.z)
-            root.rotation.y = s.rotation ?? 0
-          })
-          .catch(() => {
-            // Fallback box if GLB is missing
-            const fb = MeshBuilder.CreateBox(`struct_fb_${i}`, { size: 2 }, scene)
-            fb.position.set(s.x, 1, s.z)
-          })
-      })
-    }
+    //  Leaf clusters 
+    // One cluster per tier: 4 overlapping blobs rotated around the trunk
+    TIER_Y.forEach((ty, ti) => {
+      const count = 5
+      for (let j = 0; j < count; j++) {
+        const angle = (j / count) * Math.PI * 2 + ti * 0.55   // stagger per tier
+        const r = 3.0 + (j % 3) * 1.2
+        const diameter = 5.5 + (j % 2) * 1.8
+        const sphere = MeshBuilder.CreateSphere(`leaf_${ti}_${j}`, {
+          diameter,
+          segments: 6,
+        }, scene)
+        sphere.scaling.y = 0.55
+        sphere.position.set(
+          Math.cos(angle) * r,
+          ty + 1.5 + (j % 3) * 0.6,
+          Math.sin(angle) * r,
+        )
+        const lMat = new StandardMaterial(`lmat_${ti}_${j}`, scene)
+        lMat.diffuseColor = j % 2 === 0 ? C_LEAF_A : C_LEAF_B
+        sphere.material = lMat
+      }
+    })
+
+    // Big crown sphere right at the top
+    const crown = MeshBuilder.CreateSphere('crown', { diameter: 14, segments: 8 }, scene)
+    crown.scaling.y = 0.65
+    crown.position.set(0, 57, 0)
+    const cMat = new StandardMaterial('crownMat', scene)
+    cMat.diffuseColor = C_LEAF_A
+    crown.material = cMat
+
+    //  Collision boxes 
+    this.buildings = [
+      // Trunk: solid from ground to top (y=0 default, full AABB)
+      { x: 0, z: 0, width: 2, depth: 2, height: 58 },
+      // Branch platforms (one-way, floating)
+      ...PLATS.map(p => ({
+        x: p.x, z: p.z, y: p.y,
+        width: p.w, depth: p.d,
+        height: BRANCH_THICKNESS,
+      })),
+    ]
   }
 }

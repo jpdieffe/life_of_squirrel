@@ -4,8 +4,6 @@ import { Player } from './player'
 import { RemotePlayer } from './remote'
 import { Network } from './network'
 import { DebugPanel } from './debug'
-import { MonsterManager } from './monsters'
-import type { MapDef } from './types'
 
 const canvas      = document.getElementById('renderCanvas') as HTMLCanvasElement
 const lobbyEl     = document.getElementById('lobby')!
@@ -16,35 +14,11 @@ const connBadgeEl = document.getElementById('connBadge')!
 
 const network = new Network()
 
-function setStatus(msg: string) {
-  statusEl.textContent = msg
-}
-
-function showConnected() {
-  connBadgeEl.style.display = 'block'
-}
-
+function setStatus(msg: string) { statusEl.textContent = msg }
+function showConnected() { connBadgeEl.style.display = 'block' }
 function networkError(msg: string) {
   setStatus(` ${msg}`)
   statusEl.style.color = '#ff6b6b'
-}
-
-async function loadActiveMap(): Promise<MapDef | undefined> {
-  try {
-    const saved = localStorage.getItem('rooftopMap')
-    if (saved) {
-      localStorage.removeItem('rooftopMap')
-      return JSON.parse(saved) as MapDef
-    }
-  } catch { /* fall through */ }
-
-  try {
-    const manifest: string[] = await fetch('./maps/manifest.json').then(r => r.json())
-    const file = manifest[Math.floor(Math.random() * manifest.length)]
-    return await fetch(`./maps/${file}`).then(r => r.json()) as MapDef
-  } catch { /* use defaults */ }
-
-  return undefined
 }
 
 async function startGame() {
@@ -63,8 +37,8 @@ async function startGame() {
     networkError([
       'WebGL failed to start. Try:',
       '1. Chrome  Settings  System  turn on "Use hardware acceleration"',
-      '2. Type chrome://flags  search "WebGL"  enable',
-      '3. Restart the browser after changing settings',
+      '2. chrome://flags  search "WebGL"  enable',
+      '3. Restart the browser',
     ].join(' '))
     return
   }
@@ -72,17 +46,12 @@ async function startGame() {
   lobbyEl.style.display = 'none'
   canvas.requestPointerLock()
 
-  const scene = new Scene(engine)
+  const scene  = new Scene(engine)
+  const world  = new World(scene)
+  const player = new Player(scene, world.buildings)
+  const remote = new RemotePlayer(scene)
+  const _debug = new DebugPanel(canvas)
 
-  const activeMap = await loadActiveMap()
-
-  const world    = new World(scene, activeMap)
-  const player   = new Player(scene, world.buildings)
-  const remote   = new RemotePlayer(scene)
-  const _debug   = new DebugPanel(canvas)
-  const monsters = new MonsterManager(scene, world.buildings, activeMap?.monsterSpawns ?? [])
-
-  // Wire player death  respawn
   player.health.onDeath = () => {
     player.onDeath()
     setTimeout(() => player.respawn(), 2000)
@@ -95,14 +64,11 @@ async function startGame() {
     const dt = Math.min(engine.getDeltaTime() / 1000, 0.05)
 
     player.update(dt)
-    monsters.update(dt, player.position, player.health, null)
 
     sendTimer += dt
     if (sendTimer >= SEND_INTERVAL) {
       sendTimer = 0
-      if (network.isConnected()) {
-        network.sendPosition(player.getState())
-      }
+      if (network.isConnected()) network.sendPosition(player.getState())
     }
 
     if (network.lastRemoteState) {
@@ -119,20 +85,14 @@ async function startGame() {
 // Host button
 const hostBtn = document.getElementById('hostBtn')! as HTMLButtonElement
 hostBtn.addEventListener('click', () => {
-  if (hostBtn.dataset.ready === '1') {
-    startGame()
-    return
-  }
+  if (hostBtn.dataset.ready === '1') { startGame(); return }
 
   statusEl.style.color = ''
   setStatus('Connecting to signaling server')
   roomCodeEl.textContent = ''
   hostBtn.disabled = true
-  network.onError = (msg) => {
-    networkError(msg)
-    hostBtn.disabled = false
-  }
-  network.onPeerConnected = () => { showConnected() }
+  network.onError = msg => { networkError(msg); hostBtn.disabled = false }
+  network.onPeerConnected = () => showConnected()
   network.host(id => {
     roomCodeEl.textContent = id
     setStatus('Share that code with a friend, then click Start Playing when ready.')
@@ -149,14 +109,6 @@ document.getElementById('joinBtn')!.addEventListener('click', () => {
   statusEl.style.color = ''
   setStatus('Connecting')
   network.onError = networkError
-  network.onPeerConnected = () => {
-    setStatus('Connected!')
-    showConnected()
-    setTimeout(startGame, 700)
-  }
-  network.join(code, () => {
-    setStatus('Connected!')
-    showConnected()
-    setTimeout(startGame, 700)
-  })
+  network.onPeerConnected = () => { setStatus('Connected!'); showConnected(); setTimeout(startGame, 700) }
+  network.join(code, () => { setStatus('Connected!'); showConnected(); setTimeout(startGame, 700) })
 })

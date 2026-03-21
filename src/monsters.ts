@@ -1,19 +1,5 @@
-import '@babylonjs/loaders/glTF'
-import {
-  Scene,
-  MeshBuilder,
-  StandardMaterial,
-  Color3,
-  Vector3,
-  TransformNode,
-  SceneLoader,
-  AbstractMesh,
-  Mesh,
-} from '@babylonjs/core'
-import { SwordSwing, spawnExplosion } from './attacks'
-import type { HealthSystem } from './health'
-import type { AttackSystem }  from './attacks'
-import type { BuildingDef, MonsterSpawnDef } from './types'
+// Monsters not used in Life of Squirrel
+export {}
 
 // ── Monster type definitions ─────────────────────────────────────────────────
 export type MonsterType = 'slime' | 'spider' | 'wolf' | 'goblin' | 'imp' | 'orc'
