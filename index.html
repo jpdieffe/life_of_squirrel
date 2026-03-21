@@ -189,6 +189,24 @@
       margin-bottom: 1rem;
     }
 
+    /* ── Room code badge (top-left, shown during gameplay) ── */
+    #roomBadge {
+      display: none;
+      position: fixed;
+      top: 0.75rem;
+      left: 0.9rem;
+      background: rgba(10, 10, 30, 0.75);
+      border: 1px solid #353570;
+      border-radius: 8px;
+      padding: 0.25rem 0.6rem;
+      color: #7eb8ff;
+      font-family: monospace;
+      font-size: 0.78rem;
+      letter-spacing: 0.04em;
+      pointer-events: none;
+      z-index: 15;
+    }
+
     /* ── Stamina bar ── */
     #staminaBar {
       position: fixed;
@@ -244,6 +262,9 @@
       <button class="btn" id="debugClose" style="margin-top:0.6rem; background:#2a2a4a;">Close</button>
     </div>
   </div>
+
+  <!-- Room code badge (visible during gameplay for host) -->
+  <div id="roomBadge"></div>
 
   <!-- Stamina bar (shown when sprinting or below full) -->
   <div id="staminaBar" style="display:none">

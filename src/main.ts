@@ -47,6 +47,14 @@ async function startGame() {
   lobbyEl.style.display = 'none'
   canvas.requestPointerLock()
 
+  // Show room code in-game so the host can still share it while playing
+  const roomBadge = document.getElementById('roomBadge') as HTMLElement | null
+  const liveCode  = roomCodeEl.textContent?.trim()
+  if (roomBadge && liveCode && liveCode !== '—') {
+    roomBadge.textContent = '🔑 ' + liveCode
+    roomBadge.style.display = 'block'
+  }
+
   const scene  = new Scene(engine)
   const world      = new World(scene)
   const player     = new Player(scene, world.buildings)

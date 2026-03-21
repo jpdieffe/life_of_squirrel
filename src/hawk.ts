@@ -144,11 +144,11 @@ export class Hawk {
   }
 
   /** True when the player is inside the hawk's vision cone.
-   *  Hawk has a 120° rear blind spot and cannot see things above it. */
+   *  Hawk has a 120° rear blind spot and cannot see things well above it. */
   private canSeePlayer(playerPos: Vector3): boolean {
     const toPlayer = playerPos.subtract(this.pos)
-    // Can't see things meaningfully above itself (gull flying overhead)
-    if (toPlayer.y > 3.0) return false
+    // Can't see things high above (gull flying well above the hawk)
+    if (toPlayer.y > 15.0) return false
     // Horizontal FOV: anything NOT in the rear 120° arc is visible
     const toXZ  = Math.sqrt(toPlayer.x * toPlayer.x + toPlayer.z * toPlayer.z)
     if (toXZ  < 1.0) return true  // directly below — always visible
@@ -223,7 +223,7 @@ export class Hawk {
     const dir = diff.normalizeToNew()
     this.pos.addInPlace(dir.scale(DIVE_SPEED * dt))
     this.facingY = Math.atan2(dir.x, dir.z)
-    this.avoidTree()
+    this.avoidTrunk()  // only trunk during dive — leaf repulsion causes oscillation
   }
 
   private updateReturning(dt: number) {
@@ -247,13 +247,7 @@ export class Hawk {
 
   /** Steer hawk away from trunk and all leaf spheres */
   private avoidTree() {
-    // Trunk: cylindrical repulsion from XZ origin
-    const xzDist = Math.sqrt(this.pos.x * this.pos.x + this.pos.z * this.pos.z)
-    if (xzDist < TRUNK_CLEARANCE && xzDist > 0.01) {
-      const scale = TRUNK_CLEARANCE / xzDist
-      this.pos.x *= scale
-      this.pos.z *= scale
-    }
+    this.avoidTrunk()
     // Leaf spheres: push hawk outside the repulsion radius of each leaf
     for (const leaf of this.leaves) {
       const dx   = this.pos.x - leaf.position.x
@@ -266,6 +260,16 @@ export class Hawk {
         this.pos.y = leaf.position.y + dy * scale
         this.pos.z = leaf.position.z + dz * scale
       }
+    }
+  }
+
+  /** Push hawk away from trunk centre (XZ only) */
+  private avoidTrunk() {
+    const xzDist = Math.sqrt(this.pos.x * this.pos.x + this.pos.z * this.pos.z)
+    if (xzDist < TRUNK_CLEARANCE && xzDist > 0.01) {
+      const scale = TRUNK_CLEARANCE / xzDist
+      this.pos.x *= scale
+      this.pos.z *= scale
     }
   }
 
