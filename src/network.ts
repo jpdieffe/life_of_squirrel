@@ -1,6 +1,6 @@
 import Peer from 'peerjs'
 import type { DataConnection } from 'peerjs'
-import type { NetMessage, PlayerState, CharacterClass } from './types'
+import type { NetMessage, PlayerState } from './types'
 
 const FRUITS = [
   'apple','apricot','avocado','banana','berry','cherry','clementine',
@@ -35,9 +35,6 @@ export class Network {
 
   /** Called when any error occurs (e.g. signaling server unreachable) */
   onError: ((msg: string) => void) | null = null
-
-  /** Called when the remote player fires an attack */
-  onAttack: ((cls: CharacterClass, alpha: number, beta: number) => void) | null = null
 
   // ── Host side ─────────────────────────────────────────────────────────────
 
@@ -119,8 +116,6 @@ export class Network {
       const msg = raw as NetMessage
       if (msg.type === 'state') {
         this.lastRemoteState = msg.state
-      } else if (msg.type === 'attack') {
-        this.onAttack?.(msg.cls, msg.alpha, msg.beta)
       }
     })
     conn.on('open', () => {
@@ -139,12 +134,6 @@ export class Network {
     if (this.conn?.open) {
       const msg: NetMessage = { type: 'state', state }
       this.conn.send(msg)
-    }
-  }
-
-  sendAttack(cls: CharacterClass, alpha: number, beta: number) {
-    if (this.conn?.open) {
-      this.conn.send({ type: 'attack', cls, alpha, beta } as NetMessage)
     }
   }
 

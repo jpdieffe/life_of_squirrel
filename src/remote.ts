@@ -9,39 +9,51 @@ import {
   TransformNode,
   SceneLoader,
   AbstractMesh,
+  AnimationGroup,
 } from '@babylonjs/core'
-import type { PlayerState, CharacterClass } from './types'
-import { AttackSystem } from './attacks'
+import type { PlayerState, AnimState } from './types'
 
-const PLAYER_HEIGHT = 1.8
-const PLAYER_RADIUS = 0.4
-const LERP_SPEED    = 15
+const PLAYER_HEIGHT  = 1.8
+const PLAYER_RADIUS  = 0.4
+const LERP_SPEED     = 15
+const SQUIRREL_SCALE = 2.0
 
-const CHAR_MODEL: Record<CharacterClass, [string, string]> = {
-  warrior: ['./assets/chars/', 'knight.glb'],
-  wizard:  ['./assets/chars/', 'wizard.glb'],
-  rogue:   ['./assets/chars/', 'rogue.glb'],
-  archer:  ['./assets/chars/', 'archer.glb'],
+const ANIM_FILES: Record<AnimState, string> = {
+  idle:  './assets/squirrel/idle.glb',
+  run:   './assets/squirrel/run.glb',
+  jump:  './assets/squirrel/jump.glb',
+  fall:  './assets/squirrel/fall.glb',
+  sneak: './assets/squirrel/sneak.glb',
+  death: './assets/squirrel/death.glb',
 }
-const CHAR_SCALE = 2.0
+
+function meshBottomY(meshes: AbstractMesh[]): number {
+  let minY = Infinity
+  for (const m of meshes) {
+    m.computeWorldMatrix(true)
+    const worldMin = m.getBoundingInfo().boundingBox.minimumWorld.y
+    if (worldMin < minY) minY = worldMin
+  }
+  return minY === Infinity ? 0 : minY
+}
+
+interface AnimEntry {
+  root: TransformNode
+  yOffset: number
+  group: AnimationGroup | null
+}
 
 export class RemotePlayer {
   readonly mesh: Mesh
 
   private readonly target  = new Vector3(0, -20, 0)
   private readonly current = new Vector3(0, -20, 0)
-  private currentFeet      = new Vector3(0, -20, 0)
 
-  private charRoot: TransformNode | null = null
-  private charYOffset = 0
-  private currentCls: CharacterClass | null = null
+  private animEntries: Partial<Record<AnimState, AnimEntry>> = {}
+  private currentAnim: AnimState = 'idle'
   private facingY = 0
 
-  private readonly attackSystem: AttackSystem
-
   constructor(private readonly scene: Scene) {
-    this.attackSystem = new AttackSystem(scene)
-
     this.mesh = MeshBuilder.CreateCapsule('remote', {
       height: PLAYER_HEIGHT,
       radius: PLAYER_RADIUS,
@@ -49,64 +61,61 @@ export class RemotePlayer {
     const mat = new StandardMaterial('remoteMat', scene)
     mat.diffuseColor = new Color3(1.0, 0.35, 0.2)
     this.mesh.material = mat
+    this.mesh.isVisible = false
+
+    this.loadAllAnims()
   }
 
-  private async loadCharacter(cls: CharacterClass) {
-    if (cls === this.currentCls) return
-    this.currentCls = cls
+  private async loadAllAnims() {
+    const states: AnimState[] = ['idle', 'run', 'jump', 'fall', 'sneak', 'death']
+    await Promise.all(states.map(s => this.loadAnim(s)))
+    this.switchAnim('idle')
+  }
 
-    if (this.charRoot) {
-      this.charRoot.getChildMeshes().forEach(m => m.dispose())
-      this.charRoot.dispose()
-      this.charRoot = null
-      this.mesh.isVisible = true
-    }
-
-    const [rootUrl, filename] = CHAR_MODEL[cls]
+  private async loadAnim(state: AnimState) {
     try {
-      const result = await SceneLoader.ImportMeshAsync('', rootUrl, filename, this.scene)
-      const root = new TransformNode(`remoteCharRoot_${cls}_${Math.random()}`, this.scene)
+      const result = await SceneLoader.ImportMeshAsync('', '', ANIM_FILES[state], this.scene)
+      const root = new TransformNode(`squirrel_remote_${state}`, this.scene)
       result.meshes.forEach((m: AbstractMesh) => { if (!m.parent) m.parent = root })
-      root.scaling.setAll(CHAR_SCALE)
+      root.scaling.setAll(SQUIRREL_SCALE)
       root.position.setAll(0)
-
       this.scene.incrementRenderId()
       result.meshes.forEach((m: AbstractMesh) => m.computeWorldMatrix(true))
-
-      let minY = Infinity
-      for (const m of result.meshes) {
-        const wMin = m.getBoundingInfo().boundingBox.minimumWorld.y
-        if (wMin < minY) minY = wMin
+      const yOffset = -meshBottomY(result.meshes)
+      result.meshes.forEach((m: AbstractMesh) => { m.isVisible = false })
+      const group = result.animationGroups[0] ?? null
+      if (group) {
+        group.stop()
+        group.loopAnimation = state !== 'death'
       }
-      this.charYOffset = minY === Infinity ? 0 : -minY
-
-      this.charRoot = root
-      this.mesh.isVisible = false
+      this.animEntries[state] = { root, yOffset, group }
     } catch (err) {
-      console.warn('[RemotePlayer] model load failed, using capsule', err)
+      console.warn('[RemotePlayer] Failed to load squirrel anim', state, err)
+    }
+  }
+
+  private switchAnim(next: AnimState) {
+    if (next === this.currentAnim) return
+    const prev = this.animEntries[this.currentAnim]
+    if (prev) {
+      prev.root.getChildMeshes(false).forEach(m => { m.isVisible = false })
+      prev.group?.stop()
+    }
+    this.currentAnim = next
+    const entry = this.animEntries[next]
+    if (entry) {
+      entry.root.getChildMeshes(false).forEach(m => { m.isVisible = true })
+      entry.group?.play(entry.group.loopAnimation)
     }
   }
 
   /** Called when a network state packet arrives */
   updateTarget(state: PlayerState) {
     this.target.set(state.x, state.y + PLAYER_HEIGHT / 2, state.z)
-    this.currentFeet.set(state.x, state.y, state.z)
     this.facingY = state.ry
-    if (state.cls !== this.currentCls) {
-      this.loadCharacter(state.cls)
+    if (state.anim !== this.currentAnim) {
+      this.switchAnim(state.anim)
     }
-  }
-
-  /** Called when a network attack packet arrives */
-  triggerAttack(cls: CharacterClass, alpha: number, beta: number) {
-    // Use the live current feet position (tracks via currentFeet)
-    this.attackSystem.attack(
-      this.scene,
-      cls,
-      this.currentFeet,
-      alpha,
-      beta,
-    )
   }
 
   /** Called every render frame */
@@ -119,22 +128,12 @@ export class RemotePlayer {
     this.mesh.position.copyFrom(this.current)
     this.mesh.rotation.y = this.facingY
 
-    // Update feet position for attack spawning
-    this.currentFeet.set(
-      this.current.x,
-      this.current.y - PLAYER_HEIGHT / 2,
-      this.current.z,
-    )
+    const feetY = this.current.y - PLAYER_HEIGHT / 2
 
-    if (this.charRoot) {
-      this.charRoot.position.set(
-        this.current.x,
-        this.current.y - PLAYER_HEIGHT / 2 + this.charYOffset,
-        this.current.z,
-      )
-      this.charRoot.rotation.y = this.facingY
+    for (const entry of Object.values(this.animEntries)) {
+      if (!entry) continue
+      entry.root.position.set(this.current.x, feetY + entry.yOffset, this.current.z)
+      entry.root.rotation.y = this.facingY
     }
-
-    this.attackSystem.update(dt)
   }
 }

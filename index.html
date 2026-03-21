@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Rooftop Runners</title>
+  <title>Life of Squirrel</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
@@ -160,75 +160,7 @@
       pointer-events: none;
       z-index: 30;
     }
-    /* ── Character label (top-left) ── */
-    #charLabel {
-      position: fixed;
-      top: 0.8rem;
-      left: 0.9rem;
-      font-family: system-ui, sans-serif;
-      font-size: 0.8rem;
-      font-weight: 700;
-      pointer-events: none;
-      z-index: 30;
-      opacity: 0.85;
-    }
-
-    /* ── Crosshairs ── */
-    .crosshair {
-      display: none;
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      pointer-events: none;
-      z-index: 25;
-    }
-    .crosshair.visible { display: block; }
-
-    /* Archer: thin + with center gap */
-    #crosshairArcher {
-      width: 24px;
-      height: 24px;
-    }
-    #crosshairArcher::before,
-    #crosshairArcher::after {
-      content: '';
-      position: absolute;
-      background: rgba(255, 255, 255, 0.88);
-      border-radius: 1px;
-    }
-    /* horizontal bar — two halves with center gap */
-    #crosshairArcher::before {
-      width: 9px; height: 1.5px;
-      top: 50%; left: 0;
-      transform: translateY(-50%);
-      box-shadow: 15px 0 0 rgba(255, 255, 255, 0.88);
-    }
-    /* vertical bar — two halves with center gap */
-    #crosshairArcher::after {
-      width: 1.5px; height: 9px;
-      left: 50%; top: 0;
-      transform: translateX(-50%);
-      box-shadow: 0 15px 0 rgba(255, 255, 255, 0.88);
-    }
-
-    /* Wizard: circle + center dot */
-    #crosshairWizard {
-      width: 26px;
-      height: 26px;
-      border: 1.5px solid rgba(180, 120, 255, 0.90);
-      border-radius: 50%;
-      box-shadow: 0 0 6px rgba(160, 80, 255, 0.5);
-    }
-    #crosshairWizard::after {
-      content: '';
-      position: absolute;
-      width: 4px; height: 4px;
-      background: rgba(200, 150, 255, 0.95);
-      border-radius: 50%;
-      top: 50%; left: 50%;
-      transform: translate(-50%, -50%);
-    }
+    /* ── Character label - removed ── */
   </style>
 </head>
 <body>
@@ -237,7 +169,7 @@
   <!-- Lobby overlay -->
   <div id="lobby">
     <div class="card">
-      <h1>Rooftop Runners</h1>
+      <h1>Life of Squirrel</h1>
       <p class="subtitle">2-player &bull; Browser P2P &bull; No install</p>
 
       <!-- Host side -->
@@ -260,16 +192,9 @@
   <!-- Connected badge -->
   <div id="connBadge">● Connected</div>
 
-  <!-- Character class indicator -->
-  <div id="charLabel"></div>
-
-  <!-- Crosshairs (shown when pointer is locked to the right class) -->
-  <div id="crosshairArcher" class="crosshair"></div>
-  <div id="crosshairWizard" class="crosshair"></div>
-
   <!-- Controls hint -->
   <div id="hud">
-    WASD / Arrows &nbsp;·&nbsp; Space / E to jump &nbsp;·&nbsp; Click to capture mouse &nbsp;·&nbsp; Click to attack &nbsp;·&nbsp; Scroll to zoom &nbsp;·&nbsp; ` for characters &nbsp;·&nbsp; Esc to release
+    WASD / Arrows &nbsp;·&nbsp; Space / E to jump &nbsp;·&nbsp; Shift to sneak &nbsp;·&nbsp; Scroll to zoom &nbsp;·&nbsp; Click to capture mouse &nbsp;·&nbsp; ` to release
   </div>
 
   <script type="module" src="/src/main.ts"></script>

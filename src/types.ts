@@ -37,19 +37,18 @@ export interface MapDef {
   monsterSpawns: MonsterSpawnDef[]
 }
 
+/** Squirrel animation states */
+export type AnimState = 'idle' | 'run' | 'jump' | 'fall' | 'sneak' | 'death'
+
 /** Player state synced over the network */
 export interface PlayerState {
   x: number
   y: number   // feet Y position
   z: number
   ry: number  // horizontal rotation (camera alpha)
-  cls: CharacterClass
+  anim: AnimState
 }
 
 /** Network message envelope */
 export type NetMessage =
   | { type: 'state'; state: PlayerState }
-  | { type: 'attack'; cls: CharacterClass; alpha: number; beta: number }
-
-/** Playable character classes */
-export type CharacterClass = 'warrior' | 'wizard' | 'rogue' | 'archer'

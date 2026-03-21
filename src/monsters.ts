@@ -192,12 +192,9 @@ class Monster {
     dt: number,
     playerPos: Vector3,
     playerHealth: HealthSystem,
-    playerAttackSys: AttackSystem,
+    playerAttackSys: AttackSystem | null,
     buildings: BuildingDef[],
   ) {
-    if (!this.alive) return
-
-    // Red hit flash
     if (this.hitFlashTimer > 0) {
       this.hitFlashTimer -= dt
       const flash = this.hitFlashTimer > 0
@@ -387,7 +384,7 @@ class Monster {
   private doAttack(
     playerPos: Vector3,
     playerHealth: HealthSystem,
-    playerAttackSys: AttackSystem,
+    playerAttackSys: AttackSystem | null,
   ) {
     if (this.def.isMelee) {
       // Orc sword swing
@@ -402,7 +399,7 @@ class Monster {
 
         // Sword clash: player is also swinging AND close enough
         if (
-          playerAttackSys.isSwordSwinging() &&
+          playerAttackSys?.isSwordSwinging() &&
           Vector3.Distance(this.position, playerPos) < 3.5
         ) {
           spawnExplosion(this.scene, playerPos.clone().addInPlaceFromFloats(0, 1, 0), 0.7)
@@ -510,7 +507,7 @@ export class MonsterManager {
     dt: number,
     playerPos: Vector3,
     playerHealth: HealthSystem,
-    playerAttackSys: AttackSystem,
+    playerAttackSys: AttackSystem | null,
   ) {
     for (const m of this.monsters) {
       if (m.alive) m.update(dt, playerPos, playerHealth, playerAttackSys, this.buildings)
