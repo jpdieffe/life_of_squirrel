@@ -26,6 +26,8 @@ const LEAF_HIDE_DIST    = 5.5    // must match world.ts LEAF_FADE_DIST
 const TRUNK_CLEARANCE   = 3.5    // hawk steers around trunk within this XZ radius
 const AGGRO_COOLDOWN      = 3.0   // seconds before hawk can re-dive after a hit
 const CROUCH_AGGRO_RADIUS = 12    // hawk can only see a crouching squirrel within this range
+const FOV_COS             = -0.5  // cos(120°): hawk has a 120° blind spot behind it
+const LEAF_REPULSE        =  5.0  // m: hawk steers away from leaf sphere centres
 const FLAP_INTERVAL_MIN = 1.8    // seconds between patrol flaps (min)
 const FLAP_INTERVAL_MAX = 4.2    // seconds between patrol flaps (max)
 const FLAP_ANIM_DUR     = 0.55   // how long the flap anim plays
@@ -141,6 +143,20 @@ export class Hawk {
     return false
   }
 
+  /** True when the player is inside the hawk's vision cone.
+   *  Hawk has a 120° rear blind spot and cannot see things above it. */
+  private canSeePlayer(playerPos: Vector3): boolean {
+    const toPlayer = playerPos.subtract(this.pos)
+    // Can't see things meaningfully above itself (gull flying overhead)
+    if (toPlayer.y > 3.0) return false
+    // Horizontal FOV: anything NOT in the rear 120° arc is visible
+    const toXZ  = Math.sqrt(toPlayer.x * toPlayer.x + toPlayer.z * toPlayer.z)
+    if (toXZ  < 1.0) return true  // directly below — always visible
+    const fwdX = Math.sin(this.facingY)
+    const fwdZ = Math.cos(this.facingY)
+    return (toPlayer.x * fwdX + toPlayer.z * fwdZ) / toXZ > FOV_COS
+  }
+
   // ── State updates ────────────────────────────────────────────────────────────
 
   private updatePatrol(dt: number, playerPos: Vector3, playerCrouching: boolean) {
@@ -173,7 +189,7 @@ export class Hawk {
     const dx    = playerPos.x - this.pos.x
     const dz    = playerPos.z - this.pos.z
     const hDist = Math.sqrt(dx * dx + dz * dz)
-    if (hDist < AGGRO_RADIUS && !this.isPlayerHidden(playerPos, playerCrouching)) {
+    if (hDist < AGGRO_RADIUS && !this.isPlayerHidden(playerPos, playerCrouching) && this.canSeePlayer(playerPos)) {
       this.state = 'dive'
       this.switchAnim('glide')
     }
@@ -207,7 +223,7 @@ export class Hawk {
     const dir = diff.normalizeToNew()
     this.pos.addInPlace(dir.scale(DIVE_SPEED * dt))
     this.facingY = Math.atan2(dir.x, dir.z)
-    this.avoidTrunk()
+    this.avoidTree()
   }
 
   private updateReturning(dt: number) {
@@ -226,16 +242,30 @@ export class Hawk {
     }
     this.pos.addInPlace(diff.normalizeToNew().scale(RETURN_SPEED * dt))
     this.facingY = Math.atan2(diff.x, diff.z)
-    this.avoidTrunk()
+    this.avoidTree()
   }
 
-  /** Push hawk away from trunk centre so it can't pass through */
-  private avoidTrunk() {
+  /** Steer hawk away from trunk and all leaf spheres */
+  private avoidTree() {
+    // Trunk: cylindrical repulsion from XZ origin
     const xzDist = Math.sqrt(this.pos.x * this.pos.x + this.pos.z * this.pos.z)
     if (xzDist < TRUNK_CLEARANCE && xzDist > 0.01) {
       const scale = TRUNK_CLEARANCE / xzDist
       this.pos.x *= scale
       this.pos.z *= scale
+    }
+    // Leaf spheres: push hawk outside the repulsion radius of each leaf
+    for (const leaf of this.leaves) {
+      const dx   = this.pos.x - leaf.position.x
+      const dy   = this.pos.y - leaf.position.y
+      const dz   = this.pos.z - leaf.position.z
+      const dist = Math.sqrt(dx * dx + dy * dy + dz * dz)
+      if (dist < LEAF_REPULSE && dist > 0.01) {
+        const scale = LEAF_REPULSE / dist
+        this.pos.x = leaf.position.x + dx * scale
+        this.pos.y = leaf.position.y + dy * scale
+        this.pos.z = leaf.position.z + dz * scale
+      }
     }
   }
 
