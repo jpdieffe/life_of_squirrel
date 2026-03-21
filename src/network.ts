@@ -61,6 +61,7 @@ export class Network {
     this.peer.on('connection', conn => {
       this.conn = conn
       this.wireConn(conn)
+      conn.on('open', () => { this.onPeerConnected?.() })
     })
     this.peer.on('error', err => {
       clearTimeout(timeout)
@@ -118,9 +119,7 @@ export class Network {
         this.lastRemoteState = msg.state
       }
     })
-    conn.on('open', () => {
-      this.onPeerConnected?.()
-    })
+    // 'open' handled by host()/join() directly — not here, to avoid duplicate calls
     conn.on('close', () => {
       console.log('[Network] connection closed')
       this.conn = null
