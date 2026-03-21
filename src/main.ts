@@ -64,7 +64,7 @@ async function startGame() {
     const dt = Math.min(engine.getDeltaTime() / 1000, 0.05)
 
     player.update(dt)
-    world.updateLeafFade(player.position)
+    world.updateLeafFade(player.position, player.camera.position)
 
     sendTimer += dt
     if (sendTimer >= SEND_INTERVAL) {

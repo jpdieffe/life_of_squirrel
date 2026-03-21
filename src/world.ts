@@ -8,6 +8,7 @@
   HemisphericLight,
   DirectionalLight,
   Mesh,
+  Ray,
 } from '@babylonjs/core'
 import type { BuildingDef } from './types'
 
@@ -260,14 +261,21 @@ export class World {
     this.buildings = collision
   }
 
-  /** Call every frame with player feet position to fade leaves the player is inside */
-  updateLeafFade(playerPos: Vector3) {
+  /** Call every frame with player feet position and camera world position */
+  updateLeafFade(playerPos: Vector3, cameraPos: Vector3) {
+    // Ray from camera to squirrel — any leaf crossing this line also fades
+    const toPlayer = playerPos.subtract(cameraPos)
+    const rayLen   = toPlayer.length()
+    const ray      = new Ray(cameraPos, toPlayer.normalize(), rayLen)
+
     for (const leaf of this.leaves) {
       const dist = Vector3.Distance(leaf.position, playerPos)
-      const mat = leaf.material as StandardMaterial
+      const mat  = leaf.material as StandardMaterial
       if (!mat) continue
-      const target = dist < LEAF_FADE_DIST ? LEAF_FADE_ALPHA : 1.0
-      mat.alpha += (target - mat.alpha) * 0.15  // smooth lerp
+      const playerInside    = dist < LEAF_FADE_DIST
+      const blocksCamera    = ray.intersectsMesh(leaf as any, false).hit
+      const target = (playerInside || blocksCamera) ? LEAF_FADE_ALPHA : 1.0
+      mat.alpha += (target - mat.alpha) * 0.15
     }
   }
 }
