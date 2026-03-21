@@ -34,7 +34,7 @@ const GULL_ANIM_FILES: Partial<Record<AnimState, string>> = {
   glide: './assets/gull/glide.glb',
 }
 
-const GULL_SCALE = 2.0
+const GULL_SCALE = 1.5
 
 function meshBottomY(meshes: AbstractMesh[]): number {
   let minY = Infinity

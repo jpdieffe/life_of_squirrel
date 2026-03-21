@@ -43,7 +43,7 @@ const GULL_ANIM_FILES: Partial<Record<AnimState, string>> = {
   glide: './assets/gull/glide.glb',
 }
 
-const GULL_SCALE      = 3.0
+const GULL_SCALE      = 1.5
 const FLAP_BOOST      = 12    // m/s upward velocity added per flap
 const FLAP_COOLDOWN   = 0.22  // seconds between flap boosts
 const FLAP_ANIM_DUR   = 0.22  // seconds the flap anim plays after each flap
