@@ -1,31 +1,17 @@
 ﻿import type { CharacterType } from './types'
 
 export class DebugPanel {
-  private readonly canvas: HTMLCanvasElement
-  private readonly panel: HTMLElement
-  private character: CharacterType = 'squirrel'
+  private isOpen = false
 
   onSwitchCharacter?: () => void
 
-  constructor(canvas: HTMLCanvasElement) {
-    this.canvas = canvas
-    this.panel  = document.getElementById('debugPanel') as HTMLElement
-
+  constructor(private readonly canvas: HTMLCanvasElement) {
     window.addEventListener('keydown', e => {
-      if (e.code !== 'Backquote') return
-      e.preventDefault()
-      if (e.shiftKey) {
-        // Tilde (~) toggles the debug panel
-        const open = this.panel.style.display !== 'none'
-        if (open) {
-          this.panel.style.display = 'none'
-          canvas.requestPointerLock()
-        } else {
-          document.exitPointerLock()
-          this.panel.style.display = 'flex'
-        }
-      } else {
-        // Backtick (`) just releases pointer lock
+      if (e.key === '~') {
+        e.preventDefault()
+        this.isOpen ? this.close() : this.open()
+      } else if (e.key === '`') {
+        e.preventDefault()
         document.exitPointerLock()
       }
     })
@@ -35,13 +21,23 @@ export class DebugPanel {
     })
 
     document.getElementById('debugClose')!.addEventListener('click', () => {
-      this.panel.style.display = 'none'
-      canvas.requestPointerLock()
+      this.close()
     })
   }
 
+  private open() {
+    this.isOpen = true
+    document.getElementById('debugPanel')!.style.display = 'flex'
+    document.exitPointerLock()
+  }
+
+  private close() {
+    this.isOpen = false
+    document.getElementById('debugPanel')!.style.display = 'none'
+    this.canvas.requestPointerLock()
+  }
+
   setCharacter(c: CharacterType) {
-    this.character = c
     const btn = document.getElementById('debugSwitchChar') as HTMLButtonElement
     btn.textContent = c === 'squirrel' ? 'Switch to Sea Gull' : 'Switch to Squirrel'
   }
