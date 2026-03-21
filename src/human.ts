@@ -10,10 +10,10 @@ import {
 import type { HealthSystem } from './health'
 
 // ── Tuning ────────────────────────────────────────────────────────────────────
-const TARGET_HEIGHT     = 1.8   // auto-scale model so it stands this tall (metres)
+const TARGET_HEIGHT     = 7.2   // auto-scale model so it stands this tall (metres)
 const HUMAN_SCALE       = 1.0   // fallback if bounding box cannot be measured
 const SPAWN_X           = 90      // near the house
-const SPAWN_Z           = 53      // south side of the house, outdoors
+const SPAWN_Z           = 30      // south of the house, more open ground
 const WALK_SPEED        = 3.0     // m/s while walking
 const JOG_SPEED         = 6.5     // m/s while jogging
 const NOTICE_RADIUS     = 9       // m: human first notices the player
