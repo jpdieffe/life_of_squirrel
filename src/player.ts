@@ -11,6 +11,7 @@ import {
   TransformNode,
   AbstractMesh,
   AnimationGroup,
+  PBRMaterial,
 } from '@babylonjs/core'
 import type { BuildingDef, PlayerState, AnimState, CharacterType } from './types'
 import { HealthSystem } from './health'
@@ -351,6 +352,14 @@ export class Player {
     activeEntry?.root.getChildMeshes(false).forEach(m => {
       m.isVisible  = v
       m.visibility = sneakTransparent ? 0.2 : 1.0
+      // GLTF models use PBRMaterial; set alpha + transparencyMode so the blend actually shows
+      if (m.material) {
+        m.material.alpha = sneakTransparent ? 0.2 : 1.0
+        if (m.material instanceof PBRMaterial) {
+          // 0 = OPAQUE, 2 = ALPHABLEND
+          m.material.transparencyMode = sneakTransparent ? 2 : 0
+        }
+      }
     })
   }
 

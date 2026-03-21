@@ -126,6 +126,6 @@ document.getElementById('joinBtn')!.addEventListener('click', () => {
   statusEl.style.color = ''
   setStatus('Connecting')
   network.onError = networkError
-  network.onPeerConnected = () => { setStatus('Connected!'); showConnected(); setTimeout(startGame, 700) }
+  network.onPeerConnected = () => showConnected()   // badge only; game started by onConnected
   network.join(code, () => { setStatus('Connected!'); showConnected(); setTimeout(startGame, 700) })
 })
