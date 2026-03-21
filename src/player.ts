@@ -12,7 +12,7 @@ import {
   AbstractMesh,
   AnimationGroup,
 } from '@babylonjs/core'
-import type { BuildingDef, PlayerState, AnimState } from './types'
+import type { BuildingDef, PlayerState, AnimState, CharacterType } from './types'
 import { HealthSystem } from './health'
 
 const GRAVITY       = -28    // m/s^2
@@ -27,7 +27,7 @@ const SQUIRREL_SCALE = 2.0
 
 const SPAWN = new Vector3(0, 0, -8)
 
-const ANIM_FILES: Record<AnimState, string> = {
+const SQUIRREL_ANIM_FILES: Partial<Record<AnimState, string>> = {
   idle:  './assets/squirrel/idle.glb',
   run:   './assets/squirrel/run.glb',
   jump:  './assets/squirrel/jump.glb',
@@ -35,6 +35,20 @@ const ANIM_FILES: Record<AnimState, string> = {
   sneak: './assets/squirrel/sneak.glb',
   death: './assets/squirrel/death.glb',
 }
+
+const GULL_ANIM_FILES: Partial<Record<AnimState, string>> = {
+  idle:  './assets/gull/idle.glb',
+  walk:  './assets/gull/walk.glb',
+  flap:  './assets/gull/flap.glb',
+  glide: './assets/gull/glide.glb',
+}
+
+const GULL_SCALE      = 2.0
+const FLAP_BOOST      = 12    // m/s upward velocity added per flap
+const FLAP_COOLDOWN   = 0.30  // seconds between flap boosts
+const FLAP_ANIM_DUR   = 0.50  // seconds the flap anim plays after each flap
+const GLIDE_GRAVITY   = -2.5  // gravity m/s² while holding space as gull
+const GULL_MOVE_SPEED = 6     // m/s horizontal for gull
 
 function meshBottomY(meshes: AbstractMesh[]): number {
   let minY = Infinity
@@ -61,10 +75,18 @@ export class Player {
   readonly velocity = new Vector3(0, 0, 0)
   onGround = false
 
-  private animEntries: Partial<Record<AnimState, AnimEntry>> = {}
+  private squirrelEntries: Partial<Record<AnimState, AnimEntry>> = {}
+  private gullEntries:     Partial<Record<AnimState, AnimEntry>> = {}
+  private character: CharacterType = 'squirrel'
+  private get activeEntries(): Partial<Record<AnimState, AnimEntry>> {
+    return this.character === 'squirrel' ? this.squirrelEntries : this.gullEntries
+  }
   private currentAnim: AnimState = 'idle'
   private facingY = 0
   private isDead = false
+  private spaceWasDown  = false
+  private flapCooldown  = 0
+  private flapAnimTimer = 0
 
   private readonly keys: Record<string, boolean> = {}
   private readonly buildings: BuildingDef[]
@@ -124,42 +146,48 @@ export class Player {
   }
 
   private async loadAllAnims() {
-    const states: AnimState[] = ['idle', 'run', 'jump', 'fall', 'sneak', 'death']
-    await Promise.all(states.map(s => this.loadAnim(s)))
+    await Promise.all([
+      ...Object.entries(SQUIRREL_ANIM_FILES).map(([s, f]) =>
+        this.loadAnimInto(s as AnimState, f!, this.squirrelEntries, 'sq')),
+      ...Object.entries(GULL_ANIM_FILES).map(([s, f]) =>
+        this.loadAnimInto(s as AnimState, f!, this.gullEntries, 'gu')),
+    ])
     this.switchAnim('idle')
   }
 
-  private async loadAnim(state: AnimState) {
+  private async loadAnimInto(
+    state: AnimState, file: string,
+    dict: Partial<Record<AnimState, AnimEntry>>, prefix: string,
+  ) {
     try {
-      const result = await SceneLoader.ImportMeshAsync('', '', ANIM_FILES[state], this.scene)
-      const root = new TransformNode(`squirrel_player_${state}`, this.scene)
+      const scale  = prefix === 'gu' ? GULL_SCALE : SQUIRREL_SCALE
+      const noLoop = prefix === 'sq' ? state === 'death' : state === 'flap'
+      const result = await SceneLoader.ImportMeshAsync('', '', file, this.scene)
+      const root   = new TransformNode(`${prefix}_player_${state}`, this.scene)
       result.meshes.forEach((m: AbstractMesh) => { if (!m.parent) m.parent = root })
-      root.scaling.setAll(SQUIRREL_SCALE)
+      root.scaling.setAll(scale)
       root.position.setAll(0)
       this.scene.incrementRenderId()
       result.meshes.forEach((m: AbstractMesh) => m.computeWorldMatrix(true))
       const yOffset = -meshBottomY(result.meshes)
       result.meshes.forEach((m: AbstractMesh) => { m.isVisible = false })
       const group = result.animationGroups[0] ?? null
-      if (group) {
-        group.stop()
-        group.loopAnimation = state !== 'death'
-      }
-      this.animEntries[state] = { root, yOffset, group }
+      if (group) { group.stop(); group.loopAnimation = !noLoop }
+      dict[state] = { root, yOffset, group }
     } catch (err) {
-      console.error('[Player] Failed to load squirrel anim', state, err)
+      console.error('[Player] Failed to load anim', prefix, state, err)
     }
   }
 
   private switchAnim(next: AnimState) {
     if (next === this.currentAnim) return
-    const prev = this.animEntries[this.currentAnim]
+    const prev = this.activeEntries[this.currentAnim]
     if (prev) {
       prev.root.getChildMeshes(false).forEach(m => { m.isVisible = false })
       prev.group?.stop()
     }
     this.currentAnim = next
-    const entry = this.animEntries[next]
+    const entry = this.activeEntries[next]
     if (entry) {
       entry.root.getChildMeshes(false).forEach(m => { m.isVisible = true })
       entry.group?.play(entry.group.loopAnimation)
@@ -167,6 +195,10 @@ export class Player {
   }
 
   private computeAnimState(moving: boolean): AnimState {
+    if (this.character === 'gull') {
+      if (!this.onGround) return this.flapAnimTimer > 0 ? 'flap' : 'glide'
+      return moving ? 'walk' : 'idle'
+    }
     if (this.isDead) return 'death'
     if (!this.onGround) return this.velocity.y > -3 ? 'jump' : 'fall'
     if (this.keys['ShiftLeft'] || this.keys['ShiftRight']) return 'sneak'
@@ -176,7 +208,7 @@ export class Player {
 
   update(dt: number) {
     if (this.isDead) {
-      this.switchAnim('death')
+      if (this.character === 'squirrel') this.switchAnim('death')
       this.health.update(dt)
       return
     }
@@ -185,8 +217,8 @@ export class Player {
     const fwdX = -Math.cos(a), fwdZ = -Math.sin(a)
     const rgtX = -Math.sin(a), rgtZ =  Math.cos(a)
 
-    const isSneaking = this.keys['ShiftLeft'] || this.keys['ShiftRight']
-    const speed = isSneaking ? SNEAK_SPEED : MOVE_SPEED
+    const isSneaking = this.character === 'squirrel' && (this.keys['ShiftLeft'] || this.keys['ShiftRight'])
+    const speed = isSneaking ? SNEAK_SPEED : this.character === 'gull' ? GULL_MOVE_SPEED : MOVE_SPEED
 
     let mx = 0, mz = 0
     if (this.keys['KeyW'] || this.keys['ArrowUp'])    { mx += fwdX; mz += fwdZ }
@@ -200,12 +232,27 @@ export class Player {
     this.velocity.x = mx * speed
     this.velocity.z = mz * speed
 
-    if ((this.keys['Space'] || this.keys['KeyE']) && this.onGround) {
-      this.velocity.y = JUMP_VELOCITY
-      this.onGround = false
+    const spaceDown = this.keys['Space'] || this.keys['KeyE']
+    if (this.character === 'gull') {
+      // Each space press = flap boost (with cooldown)
+      if (spaceDown && !this.spaceWasDown && this.flapCooldown <= 0) {
+        this.velocity.y   += FLAP_BOOST
+        this.flapCooldown  = FLAP_COOLDOWN
+        this.flapAnimTimer = FLAP_ANIM_DUR
+        this.onGround      = false
+      }
+      this.flapCooldown  = Math.max(0, this.flapCooldown  - dt)
+      this.flapAnimTimer = Math.max(0, this.flapAnimTimer - dt)
+      // Holding space = glide (very low gravity)
+      this.velocity.y += (spaceDown ? GLIDE_GRAVITY : GRAVITY) * dt
+    } else {
+      if (spaceDown && this.onGround) {
+        this.velocity.y = JUMP_VELOCITY
+        this.onGround   = false
+      }
+      this.velocity.y += GRAVITY * dt
     }
-
-    this.velocity.y += GRAVITY * dt
+    this.spaceWasDown = spaceDown
     if (this.velocity.y < TERMINAL_VEL) this.velocity.y = TERMINAL_VEL
 
     this.position.x += this.velocity.x * dt
@@ -228,7 +275,7 @@ export class Player {
 
     this.switchAnim(this.computeAnimState(moving))
 
-    for (const entry of Object.values(this.animEntries)) {
+    for (const entry of Object.values(this.activeEntries)) {
       if (!entry) continue
       entry.root.position.set(
         this.position.x,
@@ -242,7 +289,7 @@ export class Player {
     this.health.update(dt)
 
     const v = this.health.blinkVisible()
-    const activeEntry = this.animEntries[this.currentAnim]
+    const activeEntry = this.activeEntries[this.currentAnim]
     activeEntry?.root.getChildMeshes(false).forEach(m => { m.isVisible = v })
   }
 
@@ -319,6 +366,26 @@ export class Player {
     }
   }
 
+  setCharacter(c: CharacterType) {
+    if (c === this.character) return
+    // Hide all currently visible entries
+    for (const entry of Object.values(this.activeEntries)) {
+      entry?.root.getChildMeshes(false).forEach(m => { m.isVisible = false })
+      entry?.group?.stop()
+    }
+    this.character     = c
+    this.currentAnim   = 'idle'
+    this.flapCooldown  = 0
+    this.flapAnimTimer = 0
+    this.spaceWasDown  = false
+    // Show the new character's idle
+    const idleEntry = this.activeEntries['idle']
+    if (idleEntry) {
+      idleEntry.root.getChildMeshes(false).forEach(m => { m.isVisible = true })
+      idleEntry.group?.play(true)
+    }
+  }
+
   getState(): PlayerState {
     return {
       x:    this.position.x,
@@ -326,6 +393,7 @@ export class Player {
       z:    this.position.z,
       ry:   this.camera.alpha,
       anim: this.currentAnim,
+      char: this.character,
     }
   }
 }

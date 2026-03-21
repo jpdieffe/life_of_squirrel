@@ -11,14 +11,14 @@ import {
   AbstractMesh,
   AnimationGroup,
 } from '@babylonjs/core'
-import type { PlayerState, AnimState } from './types'
+import type { PlayerState, AnimState, CharacterType } from './types'
 
 const PLAYER_HEIGHT  = 1.8
 const PLAYER_RADIUS  = 0.4
 const LERP_SPEED     = 15
 const SQUIRREL_SCALE = 2.0
 
-const ANIM_FILES: Record<AnimState, string> = {
+const SQUIRREL_ANIM_FILES: Partial<Record<AnimState, string>> = {
   idle:  './assets/squirrel/idle.glb',
   run:   './assets/squirrel/run.glb',
   jump:  './assets/squirrel/jump.glb',
@@ -26,6 +26,15 @@ const ANIM_FILES: Record<AnimState, string> = {
   sneak: './assets/squirrel/sneak.glb',
   death: './assets/squirrel/death.glb',
 }
+
+const GULL_ANIM_FILES: Partial<Record<AnimState, string>> = {
+  idle:  './assets/gull/idle.glb',
+  walk:  './assets/gull/walk.glb',
+  flap:  './assets/gull/flap.glb',
+  glide: './assets/gull/glide.glb',
+}
+
+const GULL_SCALE = 2.0
 
 function meshBottomY(meshes: AbstractMesh[]): number {
   let minY = Infinity
@@ -49,7 +58,12 @@ export class RemotePlayer {
   private readonly target  = new Vector3(0, -20, 0)
   private readonly current = new Vector3(0, -20, 0)
 
-  private animEntries: Partial<Record<AnimState, AnimEntry>> = {}
+  private squirrelEntries: Partial<Record<AnimState, AnimEntry>> = {}
+  private gullEntries:     Partial<Record<AnimState, AnimEntry>> = {}
+  private character: CharacterType = 'squirrel'
+  private get activeEntries(): Partial<Record<AnimState, AnimEntry>> {
+    return this.character === 'squirrel' ? this.squirrelEntries : this.gullEntries
+  }
   private currentAnim: AnimState = 'idle'
   private facingY = 0
 
@@ -67,45 +81,66 @@ export class RemotePlayer {
   }
 
   private async loadAllAnims() {
-    const states: AnimState[] = ['idle', 'run', 'jump', 'fall', 'sneak', 'death']
-    await Promise.all(states.map(s => this.loadAnim(s)))
+    await Promise.all([
+      ...Object.entries(SQUIRREL_ANIM_FILES).map(([s, f]) =>
+        this.loadAnimInto(s as AnimState, f!, this.squirrelEntries, 'sq')),
+      ...Object.entries(GULL_ANIM_FILES).map(([s, f]) =>
+        this.loadAnimInto(s as AnimState, f!, this.gullEntries, 'gu')),
+    ])
     this.switchAnim('idle')
   }
 
-  private async loadAnim(state: AnimState) {
+  private async loadAnimInto(
+    state: AnimState, file: string,
+    dict: Partial<Record<AnimState, AnimEntry>>, prefix: string,
+  ) {
     try {
-      const result = await SceneLoader.ImportMeshAsync('', '', ANIM_FILES[state], this.scene)
-      const root = new TransformNode(`squirrel_remote_${state}`, this.scene)
+      const scale  = prefix === 'gu' ? GULL_SCALE : SQUIRREL_SCALE
+      const noLoop = prefix === 'sq' ? state === 'death' : state === 'flap'
+      const result = await SceneLoader.ImportMeshAsync('', '', file, this.scene)
+      const root   = new TransformNode(`${prefix}_remote_${state}`, this.scene)
       result.meshes.forEach((m: AbstractMesh) => { if (!m.parent) m.parent = root })
-      root.scaling.setAll(SQUIRREL_SCALE)
+      root.scaling.setAll(scale)
       root.position.setAll(0)
       this.scene.incrementRenderId()
       result.meshes.forEach((m: AbstractMesh) => m.computeWorldMatrix(true))
       const yOffset = -meshBottomY(result.meshes)
       result.meshes.forEach((m: AbstractMesh) => { m.isVisible = false })
       const group = result.animationGroups[0] ?? null
-      if (group) {
-        group.stop()
-        group.loopAnimation = state !== 'death'
-      }
-      this.animEntries[state] = { root, yOffset, group }
+      if (group) { group.stop(); group.loopAnimation = !noLoop }
+      dict[state] = { root, yOffset, group }
     } catch (err) {
-      console.warn('[RemotePlayer] Failed to load squirrel anim', state, err)
+      console.warn('[RemotePlayer] Failed to load anim', prefix, state, err)
     }
   }
 
   private switchAnim(next: AnimState) {
     if (next === this.currentAnim) return
-    const prev = this.animEntries[this.currentAnim]
+    const prev = this.activeEntries[this.currentAnim]
     if (prev) {
       prev.root.getChildMeshes(false).forEach(m => { m.isVisible = false })
       prev.group?.stop()
     }
     this.currentAnim = next
-    const entry = this.animEntries[next]
+    const entry = this.activeEntries[next]
     if (entry) {
       entry.root.getChildMeshes(false).forEach(m => { m.isVisible = true })
       entry.group?.play(entry.group.loopAnimation)
+    }
+  }
+
+  private setCharacter(c: CharacterType) {
+    if (c === this.character) return
+    for (const entry of Object.values(this.activeEntries)) {
+      entry?.root.getChildMeshes(false).forEach(m => { m.isVisible = false })
+      entry?.group?.stop()
+    }
+    this.character   = c
+    this.currentAnim = 'idle'
+    const idleEntry  = this.activeEntries['idle']
+    if (idleEntry) {
+      idleEntry.root.getChildMeshes(false).forEach(m => { m.isVisible = true })
+      idleEntry.group?.play(true)
     }
   }
 
@@ -113,9 +148,9 @@ export class RemotePlayer {
   updateTarget(state: PlayerState) {
     this.target.set(state.x, state.y + PLAYER_HEIGHT / 2, state.z)
     this.facingY = state.ry
-    if (state.anim !== this.currentAnim) {
-      this.switchAnim(state.anim)
-    }
+    const incomingChar = state.char ?? 'squirrel'
+    if (incomingChar !== this.character) this.setCharacter(incomingChar)
+    if (state.anim !== this.currentAnim) this.switchAnim(state.anim)
   }
 
   /** Called every render frame */
@@ -130,7 +165,7 @@ export class RemotePlayer {
 
     const feetY = this.current.y - PLAYER_HEIGHT / 2
 
-    for (const entry of Object.values(this.animEntries)) {
+    for (const entry of Object.values(this.activeEntries)) {
       if (!entry) continue
       entry.root.position.set(this.current.x, feetY + entry.yOffset, this.current.z)
       entry.root.rotation.y = this.facingY

@@ -41,8 +41,11 @@ export interface MapDef {
   monsterSpawns: MonsterSpawnDef[]
 }
 
-/** Squirrel animation states */
-export type AnimState = 'idle' | 'run' | 'jump' | 'fall' | 'sneak' | 'death'
+/** Animation states for all characters */
+export type AnimState = 'idle' | 'run' | 'jump' | 'fall' | 'sneak' | 'death' | 'walk' | 'flap' | 'glide'
+
+/** Which character the player is controlling */
+export type CharacterType = 'squirrel' | 'gull'
 
 /** Player state synced over the network */
 export interface PlayerState {
@@ -51,6 +54,7 @@ export interface PlayerState {
   z: number
   ry: number  // horizontal rotation (camera alpha)
   anim: AnimState
+  char?: CharacterType
 }
 
 /** Network message envelope */

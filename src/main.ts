@@ -47,10 +47,15 @@ async function startGame() {
   canvas.requestPointerLock()
 
   const scene  = new Scene(engine)
-  const world  = new World(scene)
-  const player = new Player(scene, world.buildings)
-  const remote = new RemotePlayer(scene)
-  const _debug = new DebugPanel(canvas)
+  const world      = new World(scene)
+  const player     = new Player(scene, world.buildings)
+  const remote     = new RemotePlayer(scene)
+  const debugPanel = new DebugPanel(canvas)
+  debugPanel.onSwitchCharacter = () => {
+    const next = player.getState().char === 'gull' ? 'squirrel' : 'gull'
+    player.setCharacter(next)
+    debugPanel.setCharacter(next)
+  }
 
   player.health.onDeath = () => {
     player.onDeath()
