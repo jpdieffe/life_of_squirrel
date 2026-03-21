@@ -43,12 +43,14 @@ const GULL_ANIM_FILES: Partial<Record<AnimState, string>> = {
   glide: './assets/gull/glide.glb',
 }
 
-const GULL_SCALE      = 2.0
+const GULL_SCALE      = 3.0
 const FLAP_BOOST      = 12    // m/s upward velocity added per flap
-const FLAP_COOLDOWN   = 0.30  // seconds between flap boosts
-const FLAP_ANIM_DUR   = 0.50  // seconds the flap anim plays after each flap
+const FLAP_COOLDOWN   = 0.22  // seconds between flap boosts
+const FLAP_ANIM_DUR   = 0.22  // seconds the flap anim plays after each flap
+const FLAP_SPEED_RATIO = 2.5  // playback speed multiplier for flap animation
 const GLIDE_GRAVITY   = -2.5  // gravity m/s² while holding space as gull
-const GULL_MOVE_SPEED = 6     // m/s horizontal for gull
+const GULL_MOVE_SPEED = 6     // m/s horizontal for gull on the ground
+const GULL_FLY_SPEED  = 18    // m/s horizontal for gull in the air (3×)
 
 function meshBottomY(meshes: AbstractMesh[]): number {
   let minY = Infinity
@@ -218,7 +220,9 @@ export class Player {
     const rgtX = -Math.sin(a), rgtZ =  Math.cos(a)
 
     const isSneaking = this.character === 'squirrel' && (this.keys['ShiftLeft'] || this.keys['ShiftRight'])
-    const speed = isSneaking ? SNEAK_SPEED : this.character === 'gull' ? GULL_MOVE_SPEED : MOVE_SPEED
+    const speed = isSneaking ? SNEAK_SPEED
+      : this.character === 'gull' ? (this.onGround ? GULL_MOVE_SPEED : GULL_FLY_SPEED)
+      : MOVE_SPEED
 
     let mx = 0, mz = 0
     if (this.keys['KeyW'] || this.keys['ArrowUp'])    { mx += fwdX; mz += fwdZ }
@@ -240,6 +244,13 @@ export class Player {
         this.flapCooldown  = FLAP_COOLDOWN
         this.flapAnimTimer = FLAP_ANIM_DUR
         this.onGround      = false
+        // Restart flap anim at higher speed so each press shows a full wing-beat
+        const flapEntry = this.gullEntries['flap']
+        if (flapEntry?.group) {
+          flapEntry.group.stop()
+          flapEntry.group.speedRatio = FLAP_SPEED_RATIO
+          flapEntry.group.play(false)
+        }
       }
       this.flapCooldown  = Math.max(0, this.flapCooldown  - dt)
       this.flapAnimTimer = Math.max(0, this.flapAnimTimer - dt)
