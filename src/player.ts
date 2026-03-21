@@ -475,6 +475,10 @@ export class Player {
     return this.character === 'squirrel' && (this.keys['ShiftLeft'] || this.keys['ShiftRight'])
   }
 
+  get isGull(): boolean {
+    return this.character === 'gull'
+  }
+
   getState(): PlayerState {
     return {
       x:      this.position.x,

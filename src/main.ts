@@ -144,7 +144,7 @@ async function startGame() {
         else if (activeEnemy === 'fox') fox.update(dt, player.position, player.health, player.isCrouching)
       }
       // Human NPC always active
-      human.update(dt, player.position, player.health)
+      human.update(dt, player.position, player.onGround, player.isGull, player.health)
 
       // Broadcast enemy positions to joiner
       if (network.isConnected()) {

@@ -31,6 +31,11 @@ const SLEEP_DUR_MIN     = 14      // s
 const SLEEP_DUR_MAX     = 22      // s
 const ACTIVITY_DUR_MIN  = 5       // s
 const ACTIVITY_DUR_MAX  = 13      // s
+const KNOCK_CONTACT_RADIUS = 3.0  // m (XZ) — contact radius for ground players
+const FLY_KNOCK_RADIUS     = 6.0  // m (3D) — flying gull collision sphere radius
+const HUMAN_CENTER_Y       = 3.6  // m — midpoint of the 7.2m tall human
+const KNOCK_COOLDOWN       = 2.5  // s before the human can be knocked again
+const KNOCKS_TO_ATTACK     = 3    // knockdowns before the human fights back
 
 // Animation names exactly as stored in the GLB
 type HumanAnim =
@@ -92,6 +97,8 @@ export class Human {
   private attackTimer = 0
   private hitTimer    = 0
   private jabLeft     = true
+  private knockCount    = 0
+  private knockCooldown = 0
 
   private waypoint = new Vector3(SPAWN_X, 0, SPAWN_Z + 4)
 
@@ -316,41 +323,16 @@ export class Human {
     this.facePlayer(playerPos)
     this.stateTimer -= dt
     if (this.stateTimer > 0) return
-
-    if (this.annoyance >= ATTACK_THRESH) {
-      // Jump straight into attack
-      this.state       = 'attacking'
-      this.attackTimer = ATTACK_DURATION
-      this.hitTimer    = 0
-      this.jabLeft     = true
-      this.playAnim('Fighting Left Jab', false, true)
-    } else if (this.annoyance >= ANNOYED_THRESH) {
-      // Transition through Hit_Knockback reaction then possibly attack
-      this.state      = 'annoyed'
-      this.stateTimer = 1.8
-      this.playAnim('Hit_Knockback', false)
-    } else {
-      // Crouch and watch curiously for a moment before returning to normal
-      this.state      = 'watching'
-      this.stateTimer = 2.5 + Math.random() * 2.0
-      this.playAnim('Crouch_Fwd_Loop', true)
-    }
+    // Crouch and watch; contact-based triggerKnock() handles escalation
+    this.state      = 'watching'
+    this.stateTimer = 2.5 + Math.random() * 2.0
+    this.playAnim('Crouch_Fwd_Loop', true)
   }
 
   private updateWatching(dt: number, playerPos: Vector3) {
-    // Crouch and track the player with their gaze
+    // Crouch and track the player with their gaze; contact → triggerKnock() in update()
     this.facePlayer(playerPos)
     this.stateTimer -= dt
-
-    // If player gets too close while watching, escalate
-    const dist = Vector3.Distance(this.pos, playerPos)
-    if (dist < ANNOY_RADIUS || this.annoyance >= ANNOYED_THRESH) {
-      this.state      = 'annoyed'
-      this.stateTimer = 1.8
-      this.playAnim('Hit_Knockback', false)
-      return
-    }
-
     if (this.stateTimer <= 0) {
       this.enterIdle('Idle_Loop', ACTIVITY_DUR_MIN + Math.random() * ACTIVITY_DUR_MAX)
     }
@@ -360,20 +342,8 @@ export class Human {
     this.facePlayer(playerPos)
     this.stateTimer -= dt
     if (this.stateTimer > 0) return
-
-    if (this.annoyance >= ATTACK_THRESH) {
-      this.state       = 'attacking'
-      this.attackTimer = ATTACK_DURATION
-      this.hitTimer    = 0
-      this.jabLeft     = true
-      this.playAnim('Fighting Left Jab', false, true)
-    } else if (this.annoyance >= ANNOYED_THRESH) {
-      // Still annoyed — shake again
-      this.stateTimer = 1.8
-      this.playAnim('Hit_Knockback', false, true)
-    } else {
-      this.enterIdle('Idle_Loop', ACTIVITY_DUR_MIN + Math.random() * ACTIVITY_DUR_MAX)
-    }
+    // Return to calm; contact-based triggerKnock() in update() handles re-escalation
+    this.enterIdle('Idle_Loop', ACTIVITY_DUR_MIN + Math.random() * ACTIVITY_DUR_MAX)
   }
 
   private updateAttacking(dt: number, playerPos: Vector3, health: HealthSystem) {
@@ -396,23 +366,61 @@ export class Human {
     }
 
     if (this.attackTimer <= 0) {
-      // Calm down — reset annoyance so they won't instantly re-attack
-      this.annoyance  = 1.0
+      // Calm down — reset annoyance + knock count so they won't instantly re-attack
+      this.annoyance    = 0
+      this.knockCount   = 0
+      this.knockCooldown = KNOCK_COOLDOWN
       this.state      = 'startled'
       this.stateTimer = 2.5
       this.playAnim('Confused', false)
     }
   }
 
+  // ── Knockdown ─────────────────────────────────────────────────────────────────
+
+  private triggerKnock(playerPos: Vector3) {
+    if (this.knockCooldown > 0 || this.state === 'attacking') return
+    this.knockCooldown = KNOCK_COOLDOWN
+    this.knockCount++
+    this.facePlayer(playerPos)
+    if (this.knockCount >= KNOCKS_TO_ATTACK) {
+      this.state       = 'attacking'
+      this.attackTimer = ATTACK_DURATION
+      this.hitTimer    = 0
+      this.jabLeft     = true
+      this.playAnim('Fighting Left Jab', false, true)
+    } else {
+      this.state      = 'annoyed'
+      this.stateTimer = 1.8
+      this.playAnim('Hit_Knockback', false)
+    }
+  }
+
   // ── Main update ──────────────────────────────────────────────────────────────
 
-  update(dt: number, playerPos: Vector3, health: HealthSystem) {
+  update(dt: number, playerPos: Vector3, playerOnGround: boolean, playerIsGull: boolean, health: HealthSystem) {
     if (!this.loaded) return
 
-    const dist = Vector3.Distance(
-      new Vector3(playerPos.x, 0, playerPos.z),
-      new Vector3(this.pos.x,  0, this.pos.z),
+    if (this.knockCooldown > 0) this.knockCooldown = Math.max(0, this.knockCooldown - dt)
+
+    // Contact knockdown detection
+    const xzDist = Math.sqrt(
+      (playerPos.x - this.pos.x) ** 2 + (playerPos.z - this.pos.z) ** 2
     )
+    if (this.knockCooldown === 0 && this.state !== 'attacking') {
+      const playerFlying = playerIsGull && !playerOnGround
+      if (playerFlying) {
+        // 3D distance to human body centre for flying gull collision
+        const bodyCenter = new Vector3(this.pos.x, HUMAN_CENTER_Y, this.pos.z)
+        if (Vector3.Distance(playerPos, bodyCenter) < FLY_KNOCK_RADIUS) {
+          this.triggerKnock(playerPos)
+        }
+      } else if (xzDist < KNOCK_CONTACT_RADIUS) {
+        this.triggerKnock(playerPos)
+      }
+    }
+
+    const dist = xzDist
 
     // Update annoyance
     const notSleeping = this.state !== 'sleeping'
