@@ -19,7 +19,7 @@ const POUNCE_SPEED       = 18      // m/s horizontal during leap
 const POUNCE_HEIGHT      = 5.0     // peak Y height during pounce arc
 const AGGRO_RADIUS       = 28      // m: spots a player within this range
 const DEAGGRO_RADIUS     = 36      // m: gives up stalk/chase if player gets this far
-const POUNCE_RANGE       = 3       // m: triggers pounce when this close while stalking
+const POUNCE_RANGE       = 8       // m: triggers pounce when this close while stalking
 const HIT_RADIUS         = 2.5     // m: deals damage when this close to player during leap
 const POUNCE_COOLDOWN    = 3.5     // s: idle cooldown after a pounce before wandering again
 const IDLE_DUR_MIN       = 2       // s: min idle pause during wander
@@ -30,7 +30,7 @@ const STALK_ALPHA        = 0.25    // transparency alpha while stalking
 const WANDER_BOUND       = 50      // m from origin: fox wanders within this box
 const GROUND_Y_MAX       = 1.5     // player y below this = on ground → stalk
 const LOW_FLY_MAX        = 9       // player y below this = flying low → immediate pounce
-const FLEE_DIST_DELTA    = 0.8     // m: if distance grows by this much per frame, player is fleeing
+const FLEE_RATE          = 3       // m/s: if gap is growing faster than this, player is fleeing
 
 type FoxAnim  = 'idle' | 'run' | 'sneak' | 'jump'
 type FoxState = 'idle' | 'running' | 'stalking' | 'chasing' | 'pouncing' | 'cooldown'
@@ -205,8 +205,8 @@ export class Fox {
 
     if (dist < POUNCE_RANGE) { this.startPounce(playerPos); return }
 
-    // Detect fleeing: distance increased significantly since last frame → chase
-    if (dist > this.prevDist + FLEE_DIST_DELTA) {
+    // Detect fleeing: gap growing faster than FLEE_RATE m/s → chase (dt-normalised so framerate-independent)
+    if (dist > this.prevDist + FLEE_RATE * dt) {
       this.state = 'chasing'
       this.switchAnim('run')
       this.prevDist = dist
