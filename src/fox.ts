@@ -9,6 +9,7 @@ import {
   PBRMaterial,
 } from '@babylonjs/core'
 import type { HealthSystem } from './health'
+import type { BuildingDef } from './types'
 
 // ── Tuning ────────────────────────────────────────────────────────────────────
 const FOX_SCALE          = 2.5
@@ -69,6 +70,7 @@ export class Fox {
 
   private cooldownTimer  = 0
   private active         = false
+  private buildings: BuildingDef[] = []
 
   constructor(private readonly scene: Scene) {
     this.loadAnims()
@@ -186,6 +188,24 @@ export class Fox {
 
   // ── State handlers ───────────────────────────────────────────────────────────
 
+  /** Eject the fox from any building collision box it has walked into. */
+  private avoidBuildings() {
+    for (const b of this.buildings) {
+      if ((b.y ?? 0) > 2.0) continue   // skip elevated/floating platforms
+      const hw = b.width / 2, hd = b.depth / 2
+      const px = this.pos.x, pz = this.pos.z
+      const bL = b.x - hw, bR = b.x + hw
+      const bBk = b.z - hd, bFr = b.z + hd
+      if (px < bL || px > bR || pz < bBk || pz > bFr) continue
+      const dL = px - bL, dR = bR - px, dBk = pz - bBk, dFr = bFr - pz
+      const minD = Math.min(dL, dR, dBk, dFr)
+      if      (minD === dL)  this.pos.x = bL - 0.5
+      else if (minD === dR)  this.pos.x = bR + 0.5
+      else if (minD === dBk) this.pos.z = bBk - 0.5
+      else                   this.pos.z = bFr + 0.5
+    }
+  }
+
   /** If the fox has walked into the house footprint, eject it to the nearest outer edge. */
   private avoidHouse() {
     const { x, z } = this.pos
@@ -227,6 +247,7 @@ export class Fox {
     this.pos.z += (dz / len) * WANDER_SPEED * dt
     this.facingY = Math.atan2(dx, dz)
     this.avoidHouse()
+    this.avoidBuildings()
     this.checkAggro(playerPos, playerCrouching)
   }
 
@@ -274,6 +295,7 @@ export class Fox {
     this.pos.z += (dz / dist) * STALK_SPEED * dt
     this.facingY = Math.atan2(dx, dz)
     this.avoidHouse()
+    this.avoidBuildings()
   }
 
   private updateChasing(dt: number, playerPos: Vector3) {
@@ -292,6 +314,7 @@ export class Fox {
     this.pos.z += (dz / dist) * CHASE_SPEED * dt
     this.facingY = Math.atan2(dx, dz)
     this.avoidHouse()
+    this.avoidBuildings()
   }
 
   private returnToWander() {
@@ -351,7 +374,8 @@ export class Fox {
 
   // ── Public update ────────────────────────────────────────────────────────────
 
-  update(dt: number, playerPos: Vector3, health: HealthSystem, playerCrouching = false) {
+  update(dt: number, playerPos: Vector3, health: HealthSystem, playerCrouching = false, buildings: BuildingDef[] = []) {
+    this.buildings = buildings
     if (!this.active) return
     switch (this.state) {
       case 'idle':     this.updateIdle(dt, playerPos, playerCrouching); break

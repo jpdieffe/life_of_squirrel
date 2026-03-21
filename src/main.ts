@@ -206,7 +206,7 @@ async function startGame() {
       // Tick enemy AI
       if (wavePhase === 'active') {
         if (activeEnemy === 'hawk') hawk.update(dt, player.position, player.health, player.isCrouching)
-        else if (activeEnemy === 'fox') fox.update(dt, player.position, player.health, player.isCrouching)
+        else if (activeEnemy === 'fox') fox.update(dt, player.position, player.health, player.isCrouching, world.buildings)
       }
       // Human NPC always active
       human.update(dt, player.position, player.onGround, player.isGull, player.health)

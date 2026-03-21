@@ -33,6 +33,12 @@ const FLAP_INTERVAL_MAX = 4.2    // seconds between patrol flaps (max)
 const FLAP_ANIM_DUR     = 0.55   // how long the flap anim plays
 const FLAP_SPEED_RATIO  = 2.2    // playback speed of flap clip
 
+// House bounds — player inside = hidden under the roof (hawk can't dive through walls)
+const HOUSE_X_MIN = 48
+const HOUSE_X_MAX = 132
+const HOUSE_Z_MIN = 55
+const HOUSE_Z_MAX = 125
+
 type HawkAnim  = 'flap' | 'glide' | 'idle'
 type HawkState = 'patrol' | 'dive' | 'returning'
 
@@ -165,6 +171,9 @@ export class Hawk {
 
   private isPlayerHidden(playerPos: Vector3, playerCrouching: boolean): boolean {
     if (playerCrouching && Vector3.Distance(this.pos, playerPos) > CROUCH_AGGRO_RADIUS) return true
+    // Player inside house = hidden under the roof; hawk cannot dive through walls
+    if (playerPos.x > HOUSE_X_MIN && playerPos.x < HOUSE_X_MAX &&
+        playerPos.z > HOUSE_Z_MIN && playerPos.z < HOUSE_Z_MAX) return true
     for (const leaf of this.leaves) {
       if (Vector3.Distance(leaf.position, playerPos) < LEAF_HIDE_DIST) return true
     }

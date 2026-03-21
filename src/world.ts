@@ -378,15 +378,37 @@ export class World {
     box('hPart1_T', HX, 15.4, PZ1, 10.5, GH - 15.4, W, mWall)
     collision.push({ x: HX, z: PZ1, y: 15.4, width: 10.5, depth: W, height: GH - 15.4 })
 
-    // ── 2nd-floor SLAB (one-way platform) ───────────────────────────────────
-    const F2Y    = GH         // 22.4
+    // ── 2nd-floor SLAB with stairwell opening ───────────────────────────────
+    const F2Y    = GH              // 22.4
     const SLAB_H = 2.1
-    box('h2ndFloor', HX, F2Y, HZ, HW, SLAB_H, HD, mFloor)
-    collision.push({ x: HX, z: HZ, y: F2Y, width: HW, depth: HD, height: SLAB_H })
+    const F2bot  = F2Y + SLAB_H   // 24.5 — 2nd-floor walking surface
+
+    // Stairwell constants — declared here so slab cutout uses same bounds
+    const NSTEPS      = 10
+    const stepH       = F2bot / NSTEPS    // 2.45 m — easily jumpable
+    const stepD       = 3.0
+    const stairX      = HX + 29           // x = 119 (east half)
+    const stairW      = 12.0              // tread width
+    const stairStartZ = SZ + 5            // z = 60 (clear of south wall + furniture)
+    const stairL      = stairX - stairW / 2   // x = 113
+    const stairR      = stairX + stairW / 2   // x = 125
+    const stairEndZ   = stairStartZ + NSTEPS * stepD  // z = 90 (south of partition PZ1 = 97)
+
+    // Visual slab — 4 pieces with stairwell hole
+    box('h2ndFloor_L', (WX + stairL) / 2, F2Y, HZ, stairL - WX, SLAB_H, HD, mFloor)
+    box('h2ndFloor_R', (stairR + EX) / 2, F2Y, HZ, EX - stairR, SLAB_H, HD, mFloor)
+    box('h2ndFloor_N', stairX, F2Y, (stairEndZ + NZ) / 2, stairW, SLAB_H, NZ - stairEndZ, mFloor)
+    box('h2ndFloor_S', stairX, F2Y, (SZ + stairStartZ) / 2, stairW, SLAB_H, stairStartZ - SZ, mFloor)
+
+    // Collision slab — 4 matching segments
+    collision.push({ x: (WX + stairL) / 2, z: HZ, y: F2Y, width: stairL - WX, depth: HD, height: SLAB_H })
+    collision.push({ x: (stairR + EX) / 2, z: HZ, y: F2Y, width: EX - stairR, depth: HD, height: SLAB_H })
+    collision.push({ x: stairX, z: (stairEndZ + NZ) / 2, y: F2Y, width: stairW, depth: NZ - stairEndZ, height: SLAB_H })
+    collision.push({ x: stairX, z: (SZ + stairStartZ) / 2, y: F2Y, width: stairW, depth: stairStartZ - SZ, height: SLAB_H })
+
     box('hCeiling', HX, ROOF_Y, HZ, HW, 1.05, HD, mFloor)
 
     // ── 2nd-floor walls ─────────────────────────────────────────────────────
-    const F2bot = F2Y + SLAB_H   // 24.5
 
     box('h2SW_L',  HX - 28.0, F2bot, SZ, 28.0, FH - SLAB_H, W, mWall)
     collision.push({ x: HX - 28.0, z: SZ, y: F2bot, width: 28.0, depth: W, height: FH - SLAB_H })
@@ -422,37 +444,20 @@ export class World {
     box('h2Part_T', PX2, F2bot + 15.4, HZ, W, FH - SLAB_H - 15.4, 10.5, mWall)
     collision.push({ x: PX2, z: HZ, y: F2bot + 15.4, width: W, depth: 10.5, height: FH - SLAB_H - 15.4 })
 
-    // ── Stairs: L-shaped, open corridor, 14 steps from ground → 2nd floor ──
-    // Run 1: south → north along east interior (starts near south wall)
-    // Height to reach: F2bot = 24.5m  Total depth available: ~42m
-    // Using 14 steps: stepH = 24.5/14 ≈ 1.75m, stepD = 3.0m each
-    // Stair X-centre: HX + 29 (east half, clear of east wall at EX=132 and partition at HX=90)
-    const NSTEPS  = 14
-    const stepH   = F2bot / NSTEPS    // 1.75m — comfortable to walk up
-    const stepD   = 3.0               // depth of each tread
-    const stairX  = HX + 29           // centred in east half
-    const stairW  = 10.0              // stair width
-    // Steps run from south (SZ+4) northward
-    const stairStartZ = SZ + 4        // first step near south wall
+    // ── Stairs: 10 solid steps, x=113–125, z=60–90 (constants from slab section) ──
+    // Each step is a solid column from ground up (baseY=0 = not one-way).
+    // The player jumps each 2.45 m rise; max jump height ≈ 12 m so easily reachable.
     for (let s = 0; s < NSTEPS; s++) {
       const sz = stairStartZ + s * stepD + stepD / 2
       const sy = s * stepH
-      box(`hStep_${s}`, stairX, sy, sz, stairW, stepH, stepD, mStair)
-      // Collision: each step is a platform at its top surface
-      collision.push({
-        x: stairX, z: sz,
-        y: sy,
-        width: stairW, depth: stepD, height: stepH,
-      })
+      // Visual: thin slab at the correct height
+      box(`hStep_${s}`, stairX, sy, sz, stairW, stepH + 0.2, stepD, mStair)
+      // Collision: solid pillar from ground to top of this step
+      collision.push({ x: stairX, z: sz, y: 0, width: stairW, depth: stepD, height: (s + 1) * stepH })
     }
-    // Balcony guard rail at top of stairs
-    box('hRail_N', stairX, F2bot, stairStartZ + NSTEPS * stepD, stairW, 3.5, 0.4, mRail)
-    box('hRail_E', stairX + stairW / 2, F2bot, stairStartZ + NSTEPS * stepD / 2, 0.4, 3.5, NSTEPS * stepD, mRail)
-
-    // ── Stair opening cut-away: remove slab above stair corridor ────────────
-    // The slab is visual-only (no ceiling over the stair zone so you don't hit it)
-    // We handle this by not placing a ceiling panel over the stair corridor.
-    // (The 2nd floor slab box above covers the full floor but the opening is implied.)
+    // Guard rails at top landing
+    box('hRail_N', stairX, F2bot, stairEndZ, stairW, 4.0, 0.5, mRail)
+    box('hRail_E', stairR, F2bot, (stairStartZ + stairEndZ) / 2, 0.5, 4.0, stairEndZ - stairStartZ, mRail)
 
     // ── Roof (gabled) ────────────────────────────────────────────────────────
     const roofW     = HW + 4.2
@@ -499,31 +504,32 @@ export class World {
     }
 
     const furnDefs: FurnDef[] = [
-      // ── Ground floor: living room (south half, west side) ──────────────────
-      { file: 'couch1.glb',       targetH: 6,  x: HX - 22, y: 0,    z: HZ - 20, ry: 0 },
-      { file: 'couch2.glb',       targetH: 6,  x: HX - 22, y: 0,    z: HZ - 30, ry: Math.PI / 2 },
-      { file: 'coffee_table.glb', targetH: 4,  x: HX - 14, y: 0,    z: HZ - 22, ry: 0 },
-      { file: 'arm_chair.glb',    targetH: 6,  x: HX - 5,  y: 0,    z: HZ - 28, ry: Math.PI },
+      // ── Ground floor: living room (south/west — x=48-105, z=55-97) ────────────
+      // Two couches face each other across a coffee table; arm chair to the side
+      { file: 'couch1.glb',          targetH: 6,   x: HX - 22, y: 0,    z: HZ - 17, ry: 0 },
+      { file: 'couch2.glb',          targetH: 6,   x: HX - 22, y: 0,    z: HZ - 5,  ry: Math.PI },
+      { file: 'coffee_table.glb',    targetH: 3.5, x: HX - 22, y: 0,    z: HZ - 11, ry: 0 },
+      { file: 'arm_chair.glb',       targetH: 6,   x: HX - 35, y: 0,    z: HZ - 11, ry: Math.PI / 2 },
 
-      // ── Ground floor: kitchen (north half) ────────────────────────────────
-      { file: 'kitchen_counter.glb', targetH: 7, x: HX - 10, y: 0, z: NZ - 8,  ry: Math.PI },
-      { file: 'kitchen_counter.glb', targetH: 7, x: HX - 22, y: 0, z: NZ - 8,  ry: Math.PI },
-      { file: 'mirror.glb',       targetH: 10, x: WX + 2,  y: 0,    z: HZ + 20, ry: Math.PI / 2 },
+      // ── Ground floor: kitchen (north/west — x=48-90, z=97-125) ───────────────
+      { file: 'kitchen_counter.glb', targetH: 7,   x: HX - 22, y: 0,    z: NZ - 6,  ry: Math.PI },
+      { file: 'kitchen_counter.glb', targetH: 7,   x: HX - 35, y: 0,    z: NZ - 6,  ry: Math.PI },
 
-      // ── Ground floor: bathroom (north-east corner) ─────────────────────────
-      { file: 'toilet.glb',       targetH: 6,  x: EX - 6,  y: 0,    z: NZ - 8,  ry: Math.PI },
-      { file: 'bath.glb',         targetH: 5,  x: EX - 9,  y: 0,    z: NZ - 18, ry: 0 },
-      { file: 'vanity.glb',       targetH: 7,  x: EX - 5,  y: 0,    z: NZ - 28, ry: Math.PI / 2 },
+      // ── Ground floor: bathroom (north/east — x=100-132, z=97-125) ────────────
+      { file: 'bath.glb',            targetH: 6,   x: EX - 10, y: 0,    z: NZ - 8,  ry: 0 },
+      { file: 'toilet.glb',          targetH: 6,   x: EX - 6,  y: 0,    z: NZ - 22, ry: Math.PI },
+      { file: 'vanity.glb',          targetH: 7,   x: EX - 8,  y: 0,    z: NZ - 30, ry: Math.PI / 2 },
+      { file: 'mirror.glb',          targetH: 10,  x: EX - 3,  y: 0,    z: NZ - 30, ry: -Math.PI / 2 },
 
-      // ── 2nd floor: west bedroom ────────────────────────────────────────────
-      { file: 'bed.glb',          targetH: 5,  x: HX - 20, y: F2bot, z: HZ + 15, ry: 0 },
-      { file: 'wardrobe.glb',     targetH: 12, x: HX - 35, y: F2bot, z: HZ - 20, ry: Math.PI / 2 },
-      { file: 'mirror.glb',       targetH: 10, x: WX + 2,  y: F2bot, z: HZ + 10, ry: Math.PI / 2 },
+      // ── 2nd floor: west bedroom (x=48-90) ────────────────────────────────────
+      { file: 'bed.glb',             targetH: 5,   x: HX - 18, y: F2bot, z: HZ + 25, ry: 0 },
+      { file: 'wardrobe.glb',        targetH: 12,  x: WX + 8,  y: F2bot, z: HZ - 20, ry: Math.PI / 2 },
+      { file: 'mirror.glb',          targetH: 10,  x: WX + 3,  y: F2bot, z: HZ + 5,  ry: Math.PI / 2 },
 
-      // ── 2nd floor: east bedroom ────────────────────────────────────────────
-      { file: 'bed.glb',          targetH: 5,  x: HX + 20, y: F2bot, z: HZ + 15, ry: 0 },
-      { file: 'wardrobe.glb',     targetH: 12, x: HX + 35, y: F2bot, z: HZ - 20, ry: -Math.PI / 2 },
-      { file: 'arm_chair.glb',    targetH: 6,  x: HX + 25, y: F2bot, z: HZ - 10, ry: Math.PI / 2 },
+      // ── 2nd floor: east bedroom (x=90-132; stairwell is x=113-125 z=60-90) ───
+      { file: 'bed.glb',             targetH: 5,   x: HX + 15, y: F2bot, z: HZ + 25, ry: 0 },
+      { file: 'wardrobe.glb',        targetH: 12,  x: EX - 8,  y: F2bot, z: HZ + 22, ry: -Math.PI / 2 },
+      { file: 'arm_chair.glb',       targetH: 6,   x: HX + 8,  y: F2bot, z: HZ - 15, ry: Math.PI },
     ]
 
     for (const fd of furnDefs) {
