@@ -287,6 +287,10 @@ export class Player {
         this.velocity.y = JUMP_VELOCITY
         this.onGround   = false
       }
+      // Variable-height jump: releasing space while rising cuts upward speed
+      if (!spaceDown && this.spaceWasDown && this.velocity.y > 4) {
+        this.velocity.y = 4
+      }
       this.velocity.y += GRAVITY * dt
     }
     this.spaceWasDown = spaceDown

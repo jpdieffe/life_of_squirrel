@@ -1,0 +1,1 @@
+import"./shaderStore-bQ-8n2dS.js";import{er as e}from"./main-DOd8wy2c.js";export{e as lightProxyPixelShader};
