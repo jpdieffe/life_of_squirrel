@@ -281,7 +281,6 @@ document.getElementById('joinBtn')!.addEventListener('click', () => {
   if (!code) { setStatus('Paste a room code first.'); return }
   statusEl.style.color = ''
   setStatus('Connecting…')
-  network.onStatus = msg => setStatus(msg)
   network.onError = networkError
   network.onPeerConnected = () => showConnected()   // badge only; game started by onConnected
   network.join(code, () => { setStatus('Connected!'); showConnected(); setTimeout(startGame, 700) })
