@@ -88,7 +88,13 @@ export class RemotePlayer {
       ...Object.entries(GULL_ANIM_FILES).map(([s, f]) =>
         this.loadAnimInto(s as AnimState, f!, this.gullEntries, 'gu')),
     ])
-    this.switchAnim('idle')
+    // Force-show whichever anim is current (switchAnim would skip it
+    // because currentAnim is already set to that value).
+    const entry = this.activeEntries[this.currentAnim]
+    if (entry) {
+      entry.root.getChildMeshes(false).forEach(m => { m.isVisible = true })
+      entry.group?.play(entry.group.loopAnimation)
+    }
   }
 
   private async loadAnimInto(
