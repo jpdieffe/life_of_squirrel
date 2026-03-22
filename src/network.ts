@@ -1,6 +1,6 @@
 import Peer from 'peerjs'
 import type { DataConnection } from 'peerjs'
-import type { NetMessage, PlayerState, EnemyState } from './types'
+import type { NetMessage, PlayerState, EnemyState, AcornPos } from './types'
 
 const PEER_SERVER = {
   host: '0.peerjs.com',
@@ -48,6 +48,9 @@ export class Network {
 
   /** Latest enemy state received from host (null until first packet) */
   lastRemoteEnemyState: EnemyState | null = null
+
+  /** Acorn positions received from host (null until first packet) */
+  lastAcornPositions: AcornPos[] | null = null
 
   /** Called when a P2P connection is fully established */
   onPeerConnected: (() => void) | null = null
@@ -140,6 +143,8 @@ export class Network {
         this.lastRemoteState = msg.state
       } else if (msg.type === 'enemy') {
         this.lastRemoteEnemyState = msg.data
+      } else if (msg.type === 'acorns') {
+        this.lastAcornPositions = msg.positions
       }
     })
     // 'open' handled by host()/join() directly — not here, to avoid duplicate calls
@@ -162,6 +167,13 @@ export class Network {
   sendEnemyState(data: EnemyState) {
     if (this.conn?.open) {
       const msg: NetMessage = { type: 'enemy', data }
+      this.conn.send(msg)
+    }
+  }
+
+  sendAcornPositions(positions: AcornPos[]) {
+    if (this.conn?.open) {
+      const msg: NetMessage = { type: 'acorns', positions }
       this.conn.send(msg)
     }
   }

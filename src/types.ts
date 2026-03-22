@@ -72,7 +72,11 @@ export interface EnemyState {
   huAnim: string
 }
 
+/** Acorn position for network sync */
+export interface AcornPos { x: number; z: number }
+
 /** Network message envelope */
 export type NetMessage =
   | { type: 'state'; state: PlayerState }
   | { type: 'enemy'; data: EnemyState }
+  | { type: 'acorns'; positions: AcornPos[] }

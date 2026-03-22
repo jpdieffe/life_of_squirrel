@@ -164,6 +164,7 @@ async function startGame() {
 
   const SEND_INTERVAL = 1 / 20
   let sendTimer = 0
+  let acornsSynced = false
 
   engine.runRenderLoop(() => {
     const dt = Math.min(engine.getDeltaTime() / 1000, 0.05)
@@ -247,6 +248,16 @@ async function startGame() {
     if (network.lastRemoteState) {
       remote.updateTarget(network.lastRemoteState)
       remote.update(dt)
+    }
+
+    // ── Acorn position sync (host → joiner) ──────────────────────────────────
+    if (isHost && !acornsSynced && network.isConnected()) {
+      network.sendAcornPositions(acorns.getPositions())
+      acornsSynced = true
+    }
+    if (!isHost && !acornsSynced && network.lastAcornPositions) {
+      acorns.applyPositions(network.lastAcornPositions)
+      acornsSynced = true
     }
 
     scene.render()

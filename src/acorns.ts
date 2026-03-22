@@ -105,6 +105,24 @@ export class Acorns {
 
   get count(): number { return this._count }
 
+  getPositions(): { x: number; z: number }[] {
+    return this.items.map(a => ({ x: a.baseX, z: a.baseZ }))
+  }
+
+  applyPositions(positions: { x: number; z: number }[]) {
+    for (let i = 0; i < Math.min(this.items.length, positions.length); i++) {
+      this.items[i].baseX = positions[i].x
+      this.items[i].baseZ = positions[i].z
+      this.items[i].root.position.x = positions[i].x
+      this.items[i].root.position.z = positions[i].z
+    }
+    // Hide any extra local acorns beyond what the host sent
+    for (let i = positions.length; i < this.items.length; i++) {
+      this.items[i].alive = false
+      this.items[i].root.setEnabled(false)
+    }
+  }
+
   /** Spend one acorn. Returns false if the player has none. */
   consume(): boolean {
     if (this._count <= 0) return false
