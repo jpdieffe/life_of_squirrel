@@ -314,52 +314,158 @@ export class World {
     stoneWall('stoneW2', 160, -50, 2, 30, 8)
     stoneWall('stoneW3', 50, -80, 25, 2, 8)
 
-    // ── Small decorative trees scattered around the map ──────────────────────
-    const miniTrunkMat = texMat('miniTrunkMat', './assets/textures/bark_col.jpg', './assets/textures/bark_nrm.jpg', scene, 2, 3)
-    const miniLeafMatA = new StandardMaterial('miniLeafA', scene)
-    miniLeafMatA.diffuseColor = C_LEAF_A
-    miniLeafMatA.backFaceCulling = false
-    const miniLeafMatB = new StandardMaterial('miniLeafB', scene)
-    miniLeafMatB.diffuseColor = C_LEAF_B
-    miniLeafMatB.backFaceCulling = false
+    // ── Full trees scattered around the map ─────────────────────────────────
+    const scatterTrunkMat = texMat('scatterTrunkMat', './assets/textures/bark_col.jpg', './assets/textures/bark_nrm.jpg', scene, 2, 4)
+    const scatterWoodMat  = texMat('scatterWoodMat',  './assets/textures/bark_col.jpg', './assets/textures/bark_nrm.jpg', scene, 2, 3)
 
-    const miniTreePositions: [number, number, number, number][] = [
-      // [x, z, height, canopyDiameter]
-      [-60,  -40, 12, 8],
-      [-90,  -20, 10, 7],
-      [-110,  80, 14, 9],
-      [-140, -60, 11, 7],
-      [-50,  130, 13, 8],
-      [ 70, -120, 10, 6],
-      [ 120, -80, 15, 9],
-      [ 160,  30, 11, 7],
-      [ 140, 100, 12, 8],
-      [-30, -130, 10, 7],
-      [ 100, 140, 13, 8],
-      [-170,  40, 11, 7],
-      [ 50,  160, 14, 9],
-      [-80, -140, 10, 6],
-      [ 180,  80, 12, 7],
+    // Each tree: [x, z, scale] — scale ~0.35-0.5 of the central tree
+    const SCATTER_TREES: [number, number, number][] = [
+      [-60,  -40,  0.40],
+      [-90,  -20,  0.35],
+      [-110,  80,  0.45],
+      [-140, -60,  0.38],
+      [-50,  130,  0.42],
+      [ 70, -120,  0.36],
+      [ 120, -80,  0.48],
+      [ 160,  30,  0.38],
+      [ 140, 100,  0.40],
+      [-30, -130,  0.35],
+      [ 100, 140,  0.42],
+      [-170,  40,  0.38],
+      [ 50,  160,  0.45],
+      [-80, -140,  0.36],
+      [ 180,  80,  0.40],
     ]
-    for (let ti = 0; ti < miniTreePositions.length; ti++) {
-      const [tx, tz, th, cd] = miniTreePositions[ti]
+
+    // Branch templates for scatter trees (3 tiers, 3 branches each = 9 branches)
+    const SCATTER_BRANCHES: BranchSpec[] = [
+      // Tier 1 — low
+      { angle:  0.40, attachY:  3.5, length: 10.0, tipY:  6.5, snake:  1, padW: 4.5, padD: 1.6 },
+      { angle:  2.30, attachY:  4.0, length: 11.0, tipY:  5.8, snake: -1, padW: 4.2, padD: 1.5 },
+      { angle: -1.20, attachY:  3.0, length:  9.0, tipY:  7.0, snake:  1, padW: 5.0, padD: 1.7 },
+      // Tier 2 — mid
+      { angle:  0.90, attachY:  9.5, length: 11.0, tipY: 12.0, snake: -1, padW: 4.5, padD: 1.6 },
+      { angle: -2.40, attachY: 10.0, length: 12.0, tipY: 12.5, snake:  1, padW: 4.8, padD: 1.5 },
+      { angle:  3.60, attachY:  9.0, length:  9.5, tipY: 11.5, snake:  1, padW: 4.2, padD: 1.6 },
+      // Tier 3 — high
+      { angle: -0.50, attachY: 15.5, length: 10.0, tipY: 18.0, snake: -1, padW: 4.0, padD: 1.5 },
+      { angle:  2.80, attachY: 16.0, length: 12.0, tipY: 19.0, snake:  1, padW: 4.5, padD: 1.6 },
+      { angle:  1.10, attachY: 15.0, length:  9.0, tipY: 17.5, snake: -1, padW: 4.8, padD: 1.5 },
+    ]
+    const SCATTER_TIER_Y = [6.0, 12.0, 18.0]
+
+    SCATTER_TREES.forEach(([tx, tz, sc], treeIdx) => {
+      const tH = 58 * sc     // trunk height
+      const tRadBot = 2.2 * sc
+      const tRadTop = 0.6 * sc
+      const localTrunkR = (y: number) => Math.max(tRadTop / 2, (tRadBot / 2) - (y / tH) * ((tRadBot - tRadTop) / 2))
+
       // Trunk
-      const mt = MeshBuilder.CreateCylinder(`mtTrunk${ti}`, {
-        diameterBottom: 0.8, diameterTop: 0.3, height: th, tessellation: 8,
+      const st = MeshBuilder.CreateCylinder(`st_trunk${treeIdx}`, {
+        diameterBottom: tRadBot, diameterTop: tRadTop, height: tH, tessellation: 10,
       }, scene)
-      mt.position.set(tx, th / 2, tz)
-      mt.material = miniTrunkMat
-      collision.push({ x: tx, z: tz, width: 1.2, depth: 1.2, height: th })
-      // Canopy — 2 overlapping spheres
-      const c1 = MeshBuilder.CreateSphere(`mtLeaf${ti}a`, { diameter: cd, segments: 6 }, scene)
-      c1.position.set(tx, th - 1, tz)
-      c1.scaling.y = 0.6
-      c1.material = miniLeafMatA
-      const c2 = MeshBuilder.CreateSphere(`mtLeaf${ti}b`, { diameter: cd * 0.75, segments: 6 }, scene)
-      c2.position.set(tx + cd * 0.15, th + 0.5, tz - cd * 0.1)
-      c2.scaling.y = 0.55
-      c2.material = miniLeafMatB
-    }
+      st.position.set(tx, tH / 2, tz)
+      st.material = scatterTrunkMat
+      collision.push({ x: tx, z: tz, width: tRadBot, depth: tRadBot, height: tH })
+
+      // Branches with Catmull-Rom tubes
+      SCATTER_BRANCHES.forEach((br, bi) => {
+        const aY   = br.attachY * sc
+        const tipY = br.tipY * sc
+        const len  = br.length * sc
+        const pW   = br.padW * sc
+        const pD   = br.padD * sc
+        const bThick = BRANCH_THICKNESS * sc
+
+        const endX = tx + Math.sin(br.angle) * len
+        const endZ = tz + Math.cos(br.angle) * len
+        const padY = tipY - bThick
+
+        const perpX = -Math.cos(br.angle) * br.snake
+        const perpZ =  Math.sin(br.angle) * br.snake
+
+        const startPt = new Vector3(
+          tx + Math.sin(br.angle) * localTrunkR(aY) * 0.9,
+          aY + 0.2 * sc,
+          tz + Math.cos(br.angle) * localTrunkR(aY) * 0.9,
+        )
+        const ddx = endX - startPt.x
+        const ddz = endZ - startPt.z
+
+        const ctrl: Vector3[] = [
+          startPt.clone(),
+          new Vector3(
+            startPt.x + ddx * 0.30 + perpX * 1.30 * sc,
+            aY + (padY - aY) * 0.25 + 1.4 * sc,
+            startPt.z + ddz * 0.30 + perpZ * 1.30 * sc,
+          ),
+          new Vector3(
+            startPt.x + ddx * 0.65 - perpX * 0.90 * sc,
+            aY + (padY - aY) * 0.65 - 0.7 * sc,
+            startPt.z + ddz * 0.65 - perpZ * 0.90 * sc,
+          ),
+          new Vector3(endX, padY + 0.15 * sc, endZ),
+        ]
+
+        const path = smoothPath(ctrl, 6)
+        const n = path.length
+        const sR = localTrunkR(aY) * 0.75
+        const eR = 0.45 * sc
+
+        MeshBuilder.CreateTube(`st${treeIdx}_br${bi}`, {
+          path, tessellation: 6,
+          radiusFunction: (j) => {
+            const t = n > 1 ? j / (n - 1) : 0
+            return sR * (1 - t) + eR * t
+          },
+        }, scene).material = scatterWoodMat
+
+        // Landing pad
+        const pad = MeshBuilder.CreateCylinder(`st${treeIdx}_pad${bi}`, {
+          diameter: Math.max(pW, pD), height: bThick, tessellation: 8,
+        }, scene)
+        pad.scaling.x = pW / Math.max(pW, pD)
+        pad.scaling.z = pD / Math.max(pW, pD)
+        pad.position.set(endX, padY + bThick / 2, endZ)
+        pad.material = scatterWoodMat
+
+        // Branch collision
+        collision.push({ x: endX, z: endZ, y: padY, width: pW, depth: pD, height: bThick })
+      })
+
+      // Leaf clusters at each tier
+      SCATTER_TIER_Y.forEach((ty, ti) => {
+        const tierY = ty * sc
+        const count = 5
+        for (let j = 0; j < count; j++) {
+          const a = (j / count) * Math.PI * 2 + ti * 0.8 + treeIdx * 1.3
+          const r = (2.0 + (j % 3) * 2.2) * sc
+          const diam = (4.0 + (j % 3) * 1.8) * sc
+          const sphere = MeshBuilder.CreateSphere(`st${treeIdx}_lf${ti}_${j}`, {
+            diameter: diam, segments: 5,
+          }, scene)
+          sphere.scaling.y = 0.52
+          sphere.position.set(
+            tx + Math.cos(a) * r,
+            tierY + (1.5 + (j % 3) * 0.8) * sc,
+            tz + Math.sin(a) * r,
+          )
+          const lm = new StandardMaterial(`st${treeIdx}_lm${ti}_${j}`, scene)
+          lm.diffuseColor = j % 2 === 0 ? C_LEAF_A : C_LEAF_B
+          lm.backFaceCulling = false
+          sphere.material = lm
+        }
+      })
+
+      // Crown canopy
+      const crn = MeshBuilder.CreateSphere(`st${treeIdx}_crown`, { diameter: 12 * sc, segments: 6 }, scene)
+      crn.scaling.y = 0.65
+      crn.position.set(tx, tH * 0.78, tz)
+      const cm = new StandardMaterial(`st${treeIdx}_crMat`, scene)
+      cm.diffuseColor = C_LEAF_A
+      cm.backFaceCulling = false
+      crn.material = cm
+    })
   }
 
   private _buildHouse(scene: Scene, collision: BuildingDef[]) {
