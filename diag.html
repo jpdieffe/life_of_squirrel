@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html><head><title>P2P Diagnostic</title>
+<style>
+  body { background: #111; color: #0f0; font-family: monospace; padding: 20px; font-size: 16px; }
+  .fail { color: #f44; }
+  .pass { color: #0f0; }
+  .info { color: #ff0; }
+  pre { white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<h2>P2P Connection Diagnostic</h2>
+<pre id="log"></pre>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script>
+window.addEventListener('load', function() {
+  var el = document.getElementById('log')
+  function log(msg, cls) {
+    var line = document.createElement('span')
+    line.className = cls || ''
+    line.textContent = msg + '\n'
+    el.appendChild(line)
+  }
+
+  var iceServers = [
+    { urls: 'stun:stun.relay.metered.ca:80' },
+    { urls: 'turn:standard.relay.metered.ca:80', username: '1149240b8a0d6b7c28fe6c30', credential: 'D/2XqOd5kT9ew842' },
+    { urls: 'turn:standard.relay.metered.ca:80?transport=tcp', username: '1149240b8a0d6b7c28fe6c30', credential: 'D/2XqOd5kT9ew842' },
+    { urls: 'turn:standard.relay.metered.ca:443', username: '1149240b8a0d6b7c28fe6c30', credential: 'D/2XqOd5kT9ew842' },
+    { urls: 'turns:standard.relay.metered.ca:443?transport=tcp', username: '1149240b8a0d6b7c28fe6c30', credential: 'D/2XqOd5kT9ew842' },
+  ]
+
+  log('Browser: ' + navigator.userAgent.substring(0, 80), 'info')
+  log('')
+
+  // Test 1
+  log('[Test 1] WebRTC API available?')
+  if (window.RTCPeerConnection) {
+    log('  ✓ RTCPeerConnection exists', 'pass')
+  } else {
+    log('  ✗ RTCPeerConnection NOT found', 'fail')
+    return
+  }
+
+  // Test 2
+  log('[Test 2] Can create RTCPeerConnection?')
+  try {
+    var pc = new RTCPeerConnection({ iceServers: iceServers })
+    log('  ✓ Created OK', 'pass')
+    pc.close()
+  } catch(e) {
+    log('  ✗ Failed: ' + e.message, 'fail')
+    return
+  }
+
+  // Test 3: STUN
+  log('[Test 3] STUN reachable? (waiting up to 8s...)')
+  try {
+    var pc2 = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.relay.metered.ca:80' }] })
+    pc2.createDataChannel('t')
+    var stunDone = false
+    pc2.onicecandidate = function(e) {
+      if (e.candidate && !stunDone) {
+        stunDone = true
+        log('  ✓ ICE candidate: ' + e.candidate.candidate.substring(0, 80), 'pass')
+        pc2.close()
+        runTest4()
+      }
+    }
+    pc2.createOffer().then(function(o){ return pc2.setLocalDescription(o) })
+    setTimeout(function() {
+      if (!stunDone) {
+        log('  ✗ No ICE candidates after 8s', 'fail')
+        pc2.close()
+        runTest4()
+      }
+    }, 8000)
+  } catch(e) {
+    log('  ✗ STUN error: ' + e.message, 'fail')
+    runTest4()
+  }
+
+  function runTest4() {
+    log('')
+    log('[Test 4] PeerJS signaling (0.peerjs.com)...')
+    var p = new Peer()
+    var done = false
+    var t = setTimeout(function() {
+      if (!done) { done = true; log('  ✗ Timeout after 10s', 'fail') }
+    }, 10000)
+    p.on('open', function(id) {
+      if (done) return; done = true
+      clearTimeout(t)
+      log('  ✓ Registered as: ' + id, 'pass')
+      p.destroy()
+      runTest5()
+    })
+    p.on('error', function(e) {
+      if (done) return; done = true
+      clearTimeout(t)
+      log('  ✗ Error: ' + e.type + ': ' + e.message, 'fail')
+    })
+  }
+
+  function runTest5() {
+    log('')
+    var iceConfig = { iceServers: iceServers }
+
+    log('[Test 5] Raw WebRTC with TURN relay servers...')
+    var pc1 = new RTCPeerConnection(iceConfig)
+    var pc2 = new RTCPeerConnection(iceConfig)
+    var rawDone = false
+    var pc1Cands = [], pc2Cands = []
+
+    pc1.onicecandidate = function(e) {
+      if (e.candidate) { pc1Cands.push(e.candidate.candidate); pc2.addIceCandidate(e.candidate) }
+    }
+    pc2.onicecandidate = function(e) {
+      if (e.candidate) { pc2Cands.push(e.candidate.candidate); pc1.addIceCandidate(e.candidate) }
+    }
+    pc1.oniceconnectionstatechange = function() {
+      log('  PC1 ICE: ' + pc1.iceConnectionState, pc1.iceConnectionState === 'connected' ? 'pass' : 'info')
+    }
+    pc2.oniceconnectionstatechange = function() {
+      log('  PC2 ICE: ' + pc2.iceConnectionState, pc2.iceConnectionState === 'connected' ? 'pass' : 'info')
+    }
+
+    var dc = pc1.createDataChannel('test')
+    dc.onopen = function() { log('  ✓ DC opened!', 'pass'); dc.send('hello') }
+    pc2.ondatachannel = function(e) {
+      e.channel.onmessage = function(msg) {
+        log('  ✓ Received: ' + msg.data, 'pass')
+        rawDone = true
+        pc1.close(); pc2.close()
+        showCands(pc1Cands, pc2Cands)
+        runTest6()
+      }
+    }
+
+    pc1.createOffer().then(function(o) { return pc1.setLocalDescription(o) })
+      .then(function() { return pc2.setRemoteDescription(pc1.localDescription) })
+      .then(function() { return pc2.createAnswer() })
+      .then(function(a) { return pc2.setLocalDescription(a) })
+      .then(function() { return pc1.setRemoteDescription(pc2.localDescription) })
+
+    setTimeout(function() {
+      if (!rawDone) {
+        log('  ✗ Raw WebRTC TIMED OUT', 'fail')
+        showCands(pc1Cands, pc2Cands)
+        var hasRelay = pc1Cands.concat(pc2Cands).some(function(c) { return c.indexOf('relay') !== -1 })
+        if (!hasRelay) {
+          log('  ✗ No relay candidates — TURN credentials may be invalid', 'fail')
+        } else {
+          log('  Relay candidates exist but connection still failed', 'fail')
+        }
+        pc1.close(); pc2.close()
+        finalResult('RAW_WEBRTC_FAILED')
+      }
+    }, 15000)
+  }
+
+  function runTest6() {
+    log('')
+    log('[Test 6] PeerJS with TURN servers...')
+    var ROOM = 'diag-' + Math.floor(Math.random() * 90000 + 10000)
+    log('  Room: ' + ROOM, 'info')
+    var iceConfig = { iceServers: iceServers }
+
+    var done = false
+    var timer = setTimeout(function() {
+      if (!done) { done = true; finalResult('PeerJS TIMEOUT') }
+    }, 15000)
+
+    var host = new Peer(ROOM, { config: iceConfig })
+    host.on('error', function(e) { log('  HOST ERROR: ' + e.type + ': ' + e.message, 'fail') })
+    host.on('open', function() {
+      log('  Host registered')
+      host.on('connection', function(conn) {
+        log('  Host got connection')
+        conn.on('open', function() {
+          log('  Host channel OPEN')
+          conn.send('ping')
+        })
+        conn.on('data', function(d) {
+          log('  Host received: ' + d)
+          if (!done) { done = true; clearTimeout(timer); host.destroy(); finalResult('PASS') }
+        })
+        conn.on('error', function(e) { log('  Host conn err: ' + e, 'fail') })
+      })
+
+      var joiner = new Peer({ config: iceConfig })
+      joiner.on('error', function(e) { log('  JOIN ERROR: ' + e.type + ': ' + e.message, 'fail') })
+      joiner.on('open', function(jid) {
+        log('  Joiner registered: ' + jid)
+        var c = joiner.connect(ROOM, { reliable: true })
+        c.on('open', function() { log('  Joiner channel OPEN') })
+        c.on('data', function(d) { log('  Joiner received: ' + d); c.send('pong') })
+        c.on('error', function(e) { log('  Join conn err: ' + e, 'fail') })
+      })
+    })
+  }
+
+  function showCands(c1, c2) {
+    var types = {}
+    c1.concat(c2).forEach(function(c) {
+      var m = c.match(/typ (\w+)/); if (m) types[m[1]] = true
+    })
+    log('  Candidate types: ' + Object.keys(types).join(', '), 'info')
+    log('  PC1 (' + c1.length + '):', 'info')
+    c1.forEach(function(c) { log('    ' + c.substring(0, 100), 'info') })
+    log('  PC2 (' + c2.length + '):', 'info')
+    c2.forEach(function(c) { log('    ' + c.substring(0, 100), 'info') })
+  }
+
+  function finalResult(result) {
+    log('')
+    if (result === 'PASS') {
+      log('════════════════════════════════', 'pass')
+      log('  ALL TESTS PASSED ✓', 'pass')
+      log('  P2P works in this browser!', 'pass')
+      log('════════════════════════════════', 'pass')
+    } else {
+      log('════════════════════════════════', 'fail')
+      log('  FAILED: ' + result, 'fail')
+      log('  Check: VPN, firewall, WebRTC-blocking extensions', 'fail')
+      log('════════════════════════════════', 'fail')
+    }
+  }
+})
+</script>
+</body></html>
