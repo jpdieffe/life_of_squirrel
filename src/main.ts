@@ -262,28 +262,26 @@ hostBtn.addEventListener('click', () => {
     isHost = true
     hostBtn.disabled = true
     setStatus('Loading game…')
-    const code = hostBtn.dataset.roomCode!
-
-    // Start game FIRST (heavy scene creation), THEN register with PeerJS
-    // so the signaling WebSocket is fresh and won't drop.
     startGame().then(() => {
-      network.onError = msg => networkError(msg)
-      network.onPeerConnected = () => showConnected()
-      network.host(_id => {
-        console.log('[Network] host registered, ready for joiners')
-      }, code)
+      // Re-ensure signaling is alive after heavy scene creation
+      network.ensureSignaling()
     })
     return
   }
 
-  // First click — generate room code locally (no server round-trip)
+  // First click — register with PeerJS so the room code is live on the server
   statusEl.style.color = ''
-  const code = Network.generateRoomCode()
-  roomCodeEl.textContent = code
-  setStatus('Share that code with a friend, then click Start Playing when ready.')
-  hostBtn.textContent = 'Start Playing'
-  hostBtn.dataset.ready = '1'
-  hostBtn.dataset.roomCode = code
+  setStatus('Connecting to signaling server…')
+  hostBtn.disabled = true
+  network.onError = msg => { networkError(msg); hostBtn.disabled = false }
+  network.onPeerConnected = () => showConnected()
+  network.host(id => {
+    roomCodeEl.textContent = id
+    setStatus('Share that code with a friend, then click Start Playing when ready.')
+    hostBtn.textContent = 'Start Playing'
+    hostBtn.disabled = false
+    hostBtn.dataset.ready = '1'
+  })
 })
 
 // Join button

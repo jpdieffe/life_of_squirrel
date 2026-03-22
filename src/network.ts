@@ -86,7 +86,7 @@ export class Network {
     this.destroy()
     this.peer = new Peer()
     let attempts = 0
-    const MAX_ATTEMPTS = 5
+    const MAX_ATTEMPTS = 8
     let connected = false
 
     const timeout = setTimeout(() => {
@@ -95,7 +95,7 @@ export class Network {
     }, 12000)
 
     const tryConnect = () => {
-      if (connected) return
+      if (connected || !this.peer || this.peer.destroyed) return
       attempts++
       console.log(`[Network] connection attempt ${attempts}/${MAX_ATTEMPTS} to ${roomId}`)
       if (attempts > 1) this.onStatus?.(`Connecting to host… (attempt ${attempts}/${MAX_ATTEMPTS})`)
@@ -113,7 +113,7 @@ export class Network {
         } else {
           this.onError?.('Could not connect. Make sure the host has started the game and the code is correct.')
         }
-      }, 8000)
+      }, 10000)
 
       conn.on('open', () => {
         connected = true
@@ -135,9 +135,9 @@ export class Network {
 
       // Host might not be registered yet — retry on peer-unavailable
       if (errType === 'peer-unavailable' && !connected && attempts < MAX_ATTEMPTS) {
-        console.log('[Network] host not found yet, retrying in 3 s…')
+        console.log('[Network] host not found yet, retrying in 4 s…')
         this.onStatus?.('Waiting for host to be ready…')
-        setTimeout(tryConnect, 3000)
+        setTimeout(tryConnect, 4000)
         return
       }
 
