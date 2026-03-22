@@ -375,10 +375,10 @@ export class Player {
         // Horizontal movement on the wall = component along wallU
         const uFwd = Vector3.Dot(camFwd, this.wallU)
         const uRgt = Vector3.Dot(camRgt, this.wallU)
-        // Vertical movement on the wall = component along world-Y (camera pitch via fwd.y=0 so use raw keys)
+        // Vertical movement on wall = always world-Y up, independent of camera pitch
         let wallHoriz = 0, wallVert = 0
-        if (this.keys['KeyW'] || this.keys['ArrowUp'])    { wallHoriz += uFwd; wallVert += Math.sin(-this.camera.beta + Math.PI / 2) }
-        if (this.keys['KeyS'] || this.keys['ArrowDown'])  { wallHoriz -= uFwd; wallVert -= Math.sin(-this.camera.beta + Math.PI / 2) }
+        if (this.keys['KeyW'] || this.keys['ArrowUp'])    { wallHoriz += uFwd; wallVert += 1 }
+        if (this.keys['KeyS'] || this.keys['ArrowDown'])  { wallHoriz -= uFwd; wallVert -= 1 }
         if (this.keys['KeyA'] || this.keys['ArrowLeft'])  { wallHoriz -= uRgt }
         if (this.keys['KeyD'] || this.keys['ArrowRight']) { wallHoriz += uRgt }
 
