@@ -318,41 +318,77 @@ export class World {
     const scatterTrunkMat = texMat('scatterTrunkMat', './assets/textures/bark_col.jpg', './assets/textures/bark_nrm.jpg', scene, 2, 4)
     const scatterWoodMat  = texMat('scatterWoodMat',  './assets/textures/bark_col.jpg', './assets/textures/bark_nrm.jpg', scene, 2, 3)
 
-    // Each tree: [x, z, scale] — scale ~0.35-0.5 of the central tree
+    // Trees arranged in clusters so branches overlap for jumping between them.
+    // Each tree: [x, z, scale]
     const SCATTER_TREES: [number, number, number][] = [
-      [-60,  -40,  0.40],
-      [-90,  -20,  0.35],
-      [-110,  80,  0.45],
-      [-140, -60,  0.38],
-      [-50,  130,  0.42],
-      [ 70, -120,  0.36],
-      [ 120, -80,  0.48],
-      [ 160,  30,  0.38],
-      [ 140, 100,  0.40],
-      [-30, -130,  0.35],
-      [ 100, 140,  0.42],
-      [-170,  40,  0.38],
-      [ 50,  160,  0.45],
-      [-80, -140,  0.36],
-      [ 180,  80,  0.40],
+      // ── Cluster A: NW grove (4 trees) ──
+      [-70,  -50,  0.65],
+      [-88,  -38,  0.60],
+      [-78,  -25,  0.70],
+      [-58,  -30,  0.55],
+      // ── Cluster B: SW grove (3 trees) ──
+      [-130, -70,  0.60],
+      [-148, -55,  0.65],
+      [-118, -55,  0.55],
+      // ── Cluster C: NE grove (4 trees) ──
+      [ 100, -100, 0.70],
+      [ 118, -85,  0.60],
+      [ 85,  -85,  0.65],
+      [ 105, -70,  0.55],
+      // ── Cluster D: east grove (3 trees) ──
+      [ 155,  20,  0.65],
+      [ 170,  38,  0.60],
+      [ 145,  42,  0.55],
+      // ── Cluster E: SE grove (4 trees) ──
+      [ 130,  100, 0.70],
+      [ 148,  115, 0.60],
+      [ 118,  118, 0.65],
+      [ 140,  130, 0.55],
+      // ── Cluster F: south grove (3 trees) ──
+      [ 40,   155, 0.65],
+      [ 58,   170, 0.60],
+      [ 25,   168, 0.55],
+      // ── Cluster G: west grove (3 trees) ──
+      [-165,  35,  0.60],
+      [-180,  50,  0.65],
+      [-155,  55,  0.55],
+      // ── Cluster H: north scattered (3 trees) ──
+      [-40,  -135, 0.65],
+      [-22,  -120, 0.60],
+      [-50,  -115, 0.55],
+      // ── Cluster I: far NE (3 trees) ──
+      [ 170, -40,  0.60],
+      [ 185, -25,  0.65],
+      [ 160, -20,  0.55],
+      // ── Cluster J: far south-west (2 trees) ──
+      [-55,   125, 0.70],
+      [-40,   140, 0.60],
     ]
 
-    // Branch templates for scatter trees (3 tiers, 3 branches each = 9 branches)
+    // Branch templates — 5 tiers × 3 branches = 15 branches per tree
     const SCATTER_BRANCHES: BranchSpec[] = [
       // Tier 1 — low
-      { angle:  0.40, attachY:  3.5, length: 10.0, tipY:  6.5, snake:  1, padW: 4.5, padD: 1.6 },
-      { angle:  2.30, attachY:  4.0, length: 11.0, tipY:  5.8, snake: -1, padW: 4.2, padD: 1.5 },
-      { angle: -1.20, attachY:  3.0, length:  9.0, tipY:  7.0, snake:  1, padW: 5.0, padD: 1.7 },
-      // Tier 2 — mid
-      { angle:  0.90, attachY:  9.5, length: 11.0, tipY: 12.0, snake: -1, padW: 4.5, padD: 1.6 },
-      { angle: -2.40, attachY: 10.0, length: 12.0, tipY: 12.5, snake:  1, padW: 4.8, padD: 1.5 },
-      { angle:  3.60, attachY:  9.0, length:  9.5, tipY: 11.5, snake:  1, padW: 4.2, padD: 1.6 },
-      // Tier 3 — high
-      { angle: -0.50, attachY: 15.5, length: 10.0, tipY: 18.0, snake: -1, padW: 4.0, padD: 1.5 },
-      { angle:  2.80, attachY: 16.0, length: 12.0, tipY: 19.0, snake:  1, padW: 4.5, padD: 1.6 },
-      { angle:  1.10, attachY: 15.0, length:  9.0, tipY: 17.5, snake: -1, padW: 4.8, padD: 1.5 },
+      { angle:  0.40, attachY:  3.5, length: 11.0, tipY:  6.5, snake:  1, padW: 5.0, padD: 1.8 },
+      { angle:  2.30, attachY:  4.0, length: 12.0, tipY:  5.8, snake: -1, padW: 4.5, padD: 1.6 },
+      { angle: -1.20, attachY:  3.0, length: 10.0, tipY:  7.0, snake:  1, padW: 5.5, padD: 1.8 },
+      // Tier 2
+      { angle:  0.90, attachY:  9.5, length: 12.0, tipY: 12.0, snake: -1, padW: 5.0, padD: 1.7 },
+      { angle: -2.40, attachY: 10.0, length: 13.0, tipY: 12.5, snake:  1, padW: 5.2, padD: 1.6 },
+      { angle:  3.60, attachY:  9.0, length: 10.5, tipY: 11.5, snake:  1, padW: 4.5, padD: 1.7 },
+      // Tier 3
+      { angle: -0.50, attachY: 15.5, length: 11.0, tipY: 18.0, snake: -1, padW: 5.0, padD: 1.8 },
+      { angle:  2.80, attachY: 16.0, length: 13.0, tipY: 19.0, snake:  1, padW: 4.8, padD: 1.7 },
+      { angle:  1.10, attachY: 15.0, length: 10.0, tipY: 17.5, snake: -1, padW: 5.2, padD: 1.6 },
+      // Tier 4
+      { angle:  0.20, attachY: 22.0, length: 12.0, tipY: 25.0, snake:  1, padW: 4.8, padD: 1.7 },
+      { angle: -1.70, attachY: 23.0, length: 11.0, tipY: 24.5, snake: -1, padW: 5.0, padD: 1.6 },
+      { angle:  3.20, attachY: 22.5, length: 13.0, tipY: 25.5, snake:  1, padW: 4.5, padD: 1.8 },
+      // Tier 5 — high
+      { angle:  1.40, attachY: 29.0, length: 11.0, tipY: 31.0, snake: -1, padW: 4.5, padD: 1.6 },
+      { angle: -2.10, attachY: 30.0, length: 12.5, tipY: 32.0, snake:  1, padW: 4.8, padD: 1.7 },
+      { angle:  0.60, attachY: 28.5, length: 10.0, tipY: 30.5, snake:  1, padW: 5.0, padD: 1.6 },
     ]
-    const SCATTER_TIER_Y = [6.0, 12.0, 18.0]
+    const SCATTER_TIER_Y = [6.0, 12.0, 18.0, 25.0, 31.0]
 
     SCATTER_TREES.forEach(([tx, tz, sc], treeIdx) => {
       const tH = 58 * sc     // trunk height
