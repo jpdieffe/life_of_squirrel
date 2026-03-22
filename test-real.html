@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head><title>P2P Real Game Test</title></head>
+<body>
+<pre id="log" style="font-size:14px; padding:20px; background:#111; color:#0f0;"></pre>
+<script type="module">
+// Import the ACTUAL Network class from the game source
+import { Network } from '/src/network.ts'
+
+const log = document.getElementById('log')
+function msg(s) {
+  console.log(s)
+  log.textContent += s + '\n'
+}
+
+msg('=== Testing with ACTUAL Network class ===')
+msg('')
+
+// Create host network instance
+const hostNet = new Network()
+hostNet.onError = e => msg('HOST_ERROR: ' + e)
+
+msg('[1] Calling host()...')
+hostNet.host(roomId => {
+  msg('[2] Host ready, room: ' + roomId)
+  
+  hostNet.onPeerConnected = () => {
+    msg('[5] Host: onPeerConnected fired!')
+    
+    // Send some data
+    hostNet.sendPosition({ x: 1, y: 2, z: 3, ry: 0, char: 'squirrel', crouching: false, onGround: true, hp: 100 })
+    msg('[6] Host sent position data')
+    
+    // Check if joiner received it
+    setTimeout(() => {
+      if (joinNet.lastRemoteState) {
+        msg('[7] Joiner received position: ' + JSON.stringify(joinNet.lastRemoteState))
+        msg('')
+        msg('TEST_RESULT:PASS')
+      } else {
+        msg('[7] Joiner did NOT receive position data')
+        msg('TEST_RESULT:FAIL_NO_DATA')
+      }
+    }, 1000)
+  }
+
+  // Now create joiner
+  msg('[3] Creating joiner...')
+  const joinNet = new Network()
+  joinNet.onError = e => msg('JOIN_ERROR: ' + e)
+  joinNet.onStatus = s => msg('JOIN_STATUS: ' + s)
+  
+  joinNet.join(roomId, () => {
+    msg('[4] Joiner connected!')
+    joinNet.onPeerConnected = () => {}
+  })
+
+  // Make joinNet accessible to the host callback
+  window.__joinNet = joinNet
+})
+
+// Timeout
+setTimeout(() => {
+  msg('')
+  msg('TEST_RESULT:FAIL_TIMEOUT (20s)')
+}, 20000)
+</script>
+</body>
+</html>

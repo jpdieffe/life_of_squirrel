@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head><title>P2P Test</title></head>
+<body>
+<pre id="log" style="font-size:14px; padding:20px;"></pre>
+<script type="module">
+import Peer from '/node_modules/peerjs/dist/bundler.mjs'
+
+const log = document.getElementById('log')
+function msg(s) {
+  console.log(s)
+  log.textContent += s + '\n'
+}
+
+const SERVER = { host: 'localhost', port: 9000, path: '/', secure: false, debug: 0 }
+
+const ROOM = 'test-' + Math.floor(Math.random() * 9000 + 1000)
+msg('=== P2P Connection Test ===')
+msg('Room code: ' + ROOM)
+msg('')
+
+// Step 1: Create host
+msg('[1] Creating host peer...')
+const hostPeer = new Peer(ROOM, SERVER)
+
+hostPeer.on('error', e => msg('HOST ERROR: ' + e.type + ' ' + e.message))
+
+hostPeer.on('open', hostId => {
+  msg('[2] Host registered as: ' + hostId)
+  
+  // Host listens for incoming connections
+  hostPeer.on('connection', conn => {
+    msg('[4] Host received connection from joiner')
+    conn.on('open', () => {
+      msg('[5] Host->Joiner data channel OPEN')
+      conn.send({ type: 'ping', from: 'host' })
+    })
+    conn.on('data', data => {
+      msg('[7] Host received: ' + JSON.stringify(data))
+      msg('')
+      msg('=== TEST PASSED ===')
+      msg('Both peers connected and exchanged data successfully.')
+      // Signal to automation
+      window.__TEST_PASSED = true
+    })
+    conn.on('error', e => msg('HOST CONN ERROR: ' + e))
+  })
+
+  // Step 2: Create joiner
+  msg('[3] Creating joiner peer...')
+  const joinPeer = new Peer(SERVER)
+
+  joinPeer.on('error', e => msg('JOIN ERROR: ' + e.type + ' ' + e.message))
+
+  joinPeer.on('open', joinId => {
+    msg('[3b] Joiner registered as: ' + joinId)
+    msg('[3c] Joiner connecting to room: ' + ROOM)
+    
+    const conn = joinPeer.connect(ROOM, { reliable: true })
+    
+    conn.on('open', () => {
+      msg('[6] Joiner->Host data channel OPEN')
+    })
+    conn.on('data', data => {
+      msg('[6b] Joiner received: ' + JSON.stringify(data))
+      conn.send({ type: 'pong', from: 'joiner' })
+    })
+    conn.on('error', e => msg('JOIN CONN ERROR: ' + e))
+  })
+
+  // Timeout
+  setTimeout(() => {
+    if (!window.__TEST_PASSED) {
+      msg('')
+      msg('=== TEST FAILED (timeout 15s) ===')
+      window.__TEST_FAILED = true
+    }
+  }, 15000)
+})
+</script>
+</body>
+</html>

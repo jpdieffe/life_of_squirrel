@@ -14,9 +14,11 @@
   "dependencies": {
     "@babylonjs/core": "^8.55.3",
     "@babylonjs/loaders": "^8.55.3",
+    "peer": "^1.0.2",
     "peerjs": "^1.5.5"
   },
   "devDependencies": {
+    "puppeteer": "^24.40.0",
     "typescript": "^5.9.3",
     "vite": "^8.0.0"
   }

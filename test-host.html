@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html><head><title>host-loading</title></head><body>
+<script type="module">
+import { Network } from '/src/network.ts'
+
+const net = new Network()
+net.onError = e => console.log('ERROR: ' + e)
+
+net.host(roomId => {
+  console.log('ROOM:' + roomId)
+  document.title = roomId
+
+  net.onPeerConnected = () => {
+    console.log('Peer connected!')
+    setInterval(() => {
+      net.sendPosition({ x: 10, y: 5, z: 20, ry: 1.5, char: 'squirrel', crouching: false, onGround: true, hp: 100 })
+    }, 50)
+  }
+})
+</script>
+</body></html>

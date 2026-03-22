@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html><head><title>join-loading</title></head><body>
+<script type="module">
+import { Network } from '/src/network.ts'
+
+// Room code passed via URL hash
+const ROOM = location.hash.slice(1)
+console.log('Joining room: ' + ROOM)
+
+const net = new Network()
+net.onError = e => console.log('ERROR: ' + e)
+net.onStatus = s => console.log('STATUS: ' + s)
+
+net.join(ROOM, () => {
+  console.log('Connected to host!')
+  let checks = 0
+  const iv = setInterval(() => {
+    checks++
+    if (net.lastRemoteState) {
+      console.log('Received: ' + JSON.stringify(net.lastRemoteState))
+      console.log('TEST:PASS')
+      clearInterval(iv)
+    } else if (checks > 40) {
+      console.log('TEST:FAIL_NO_DATA')
+      clearInterval(iv)
+    }
+  }, 250)
+})
+
+setTimeout(() => console.log('TEST:FAIL_TIMEOUT'), 20000)
+</script>
+</body></html>
