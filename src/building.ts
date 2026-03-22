@@ -5,6 +5,7 @@ import {
   StandardMaterial,
   Color3,
   Mesh,
+  Texture,
 } from '@babylonjs/core'
 import type { BuildingDef } from './types'
 
@@ -16,6 +17,7 @@ export class BuildingSystem {
   private active     = false
   private preview!:  Mesh
   private snapPos    = new Vector3()
+  private placedMat!: StandardMaterial
 
   constructor(private readonly scene: Scene) {
     this.preview = MeshBuilder.CreateBox('buildPreview', {
@@ -30,6 +32,14 @@ export class BuildingSystem {
     this.preview.material  = mat
     this.preview.isPickable = false
     this.preview.setEnabled(false)
+
+    // Shared material for placed blocks (wood chip texture)
+    const pm = new StandardMaterial('placedBlockMat', scene)
+    const dt = new Texture('./assets/textures/woodchip_col.jpg', scene)
+    const nt = new Texture('./assets/textures/woodchip_nrm.jpg', scene)
+    pm.diffuseTexture = dt
+    pm.bumpTexture = nt
+    this.placedMat = pm
   }
 
   get isActive(): boolean { return this.active }
@@ -77,9 +87,7 @@ export class BuildingSystem {
       width: BLOCK_SIZE, height: BLOCK_SIZE, depth: BLOCK_SIZE,
     }, this.scene)
 
-    const mat = new StandardMaterial(`placedMat_${Date.now()}`, this.scene)
-    mat.diffuseColor = new Color3(0.63, 0.47, 0.27)   // warm wood colour
-    mesh.material    = mat
+    mesh.material = this.placedMat
     const py = this.snapPos.y - BLOCK_SIZE / 2   // bottom of block
     mesh.position.set(px, this.snapPos.y, pz)
 

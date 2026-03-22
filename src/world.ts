@@ -12,7 +12,7 @@
   TransformNode,
   SceneLoader,
   AbstractMesh,
-  DynamicTexture,
+  Texture,
 } from '@babylonjs/core'
 import '@babylonjs/loaders/glTF'
 import type { BuildingDef } from './types'
@@ -23,6 +23,22 @@ const C_WOOD   = new Color3(0.48, 0.28, 0.10)
 const C_LEAF_A = new Color3(0.13, 0.44, 0.09)
 const C_LEAF_B = new Color3(0.07, 0.30, 0.06)
 const C_GROUND = new Color3(0.24, 0.54, 0.16)
+
+function texMat(
+  name: string, diffPath: string, nrmPath: string | null,
+  scene: Scene, uScale = 1, vScale = 1,
+): StandardMaterial {
+  const m = new StandardMaterial(name, scene)
+  const d = new Texture(diffPath, scene)
+  d.uScale = uScale; d.vScale = vScale
+  m.diffuseTexture = d
+  if (nrmPath) {
+    const n = new Texture(nrmPath, scene)
+    n.uScale = uScale; n.vScale = vScale
+    m.bumpTexture = n
+  }
+  return m
+}
 
 const BRANCH_THICKNESS = 0.5
 const LEAF_FADE_DIST   = 5.5   // units from leaf centre  start fading
@@ -131,10 +147,8 @@ export class World {
     sun.position = new Vector3(30, 60, 30)
 
     //  Ground 
-    const ground = MeshBuilder.CreateGround('ground', { width: 240, height: 240 }, scene)
-    const gMat = new StandardMaterial('groundMat', scene)
-    gMat.diffuseColor = C_GROUND
-    ground.material = gMat
+    const ground = MeshBuilder.CreateGround('ground', { width: 480, height: 480 }, scene)
+    ground.material = texMat('groundMat', './assets/textures/grass_col.jpg', './assets/textures/grass_nrm.png', scene, 48, 48)
 
     //  Trunk 
     const trunkH = 58
@@ -145,13 +159,10 @@ export class World {
       tessellation: 10,
     }, scene)
     trunk.position.set(0, trunkH / 2, 0)
-    const trunkMat = new StandardMaterial('trunkMat', scene)
-    trunkMat.diffuseColor = C_BARK
-    trunk.material = trunkMat
+    trunk.material = texMat('trunkMat', './assets/textures/bark_col.jpg', './assets/textures/bark_nrm.jpg', scene, 4, 8)
 
     // Shared branch material
-    const woodMat = new StandardMaterial('woodMat', scene)
-    woodMat.diffuseColor = C_WOOD
+    const woodMat = texMat('woodMat', './assets/textures/bark_col.jpg', './assets/textures/bark_nrm.jpg', scene, 2, 4)
 
     //  Branches 
     const collision: BuildingDef[] = [
@@ -267,6 +278,41 @@ export class World {
 
     // ── House ──────────────────────────────────────────────────────────────
     this._buildHouse(scene, collision)
+
+    // ── Road (east-west, in front of house) ─────────────────────────────────
+    const road = MeshBuilder.CreateGround('road', { width: 400, height: 12 }, scene)
+    road.position.set(0, 0.05, 45)
+    road.material = texMat('roadMat', './assets/textures/road_col.jpg', './assets/textures/road_nrm.jpg', scene, 40, 1)
+
+    // ── Sand areas ──────────────────────────────────────────────────────────
+    const sandMat = texMat('sandMat', './assets/textures/sand_col.jpg', './assets/textures/sand_nrm.jpg', scene, 6, 5)
+    const sand1 = MeshBuilder.CreateGround('sand1', { width: 60, height: 50 }, scene)
+    sand1.position.set(-150, 0.05, -150)
+    sand1.material = sandMat
+    const sand2 = MeshBuilder.CreateGround('sand2', { width: 50, height: 40 }, scene)
+    sand2.position.set(180, 0.05, -120)
+    sand2.material = sandMat
+
+    // ── Dirt areas ──────────────────────────────────────────────────────────
+    const dirtMat = texMat('dirtMat', './assets/textures/dirt_col.jpg', './assets/textures/dirt_nrm.jpg', scene, 5, 4)
+    const dirt1 = MeshBuilder.CreateGround('dirt1', { width: 50, height: 40 }, scene)
+    dirt1.position.set(-80, 0.05, 100)
+    dirt1.material = dirtMat
+    const dirt2 = MeshBuilder.CreateGround('dirt2', { width: 40, height: 40 }, scene)
+    dirt2.position.set(30, 0.05, -100)
+    dirt2.material = dirtMat
+
+    // ── Stone walls ─────────────────────────────────────────────────────────
+    const stoneMat = texMat('stoneMat', './assets/textures/stone_col.jpg', './assets/textures/stone_nrm.jpg', scene, 4, 2)
+    const stoneWall = (name: string, cx: number, cz: number, w: number, d: number, h: number) => {
+      const m = MeshBuilder.CreateBox(name, { width: w, height: h, depth: d }, scene)
+      m.position.set(cx, h / 2, cz)
+      m.material = stoneMat
+      collision.push({ x: cx, z: cz, width: w, depth: d, height: h })
+    }
+    stoneWall('stoneW1', -100, 50, 40, 2, 8)
+    stoneWall('stoneW2', 160, -50, 2, 30, 8)
+    stoneWall('stoneW3', 50, -80, 25, 2, 8)
   }
 
   private _buildHouse(scene: Scene, collision: BuildingDef[]) {
@@ -284,9 +330,9 @@ export class World {
       m.diffuseColor = new Color3(r, g, b)
       return m
     }
-    const mWall   = matOf('hWall',   0.91, 0.85, 0.74)
-    const mFloor  = matOf('hFloor',  0.55, 0.38, 0.22)
-    const mRoof   = matOf('hRoof',   0.40, 0.18, 0.10)
+    const mWall  = texMat('hWall', './assets/textures/plaster_col.png', './assets/textures/plaster_nrm.png', scene, 4, 3)
+    const mFloor = texMat('hFloor', './assets/textures/woodfloor_col.jpg', './assets/textures/woodfloor_nrm.png', scene, 8, 6)
+    const mRoof  = texMat('hRoof', './assets/textures/roof_col.jpg', null, scene, 6, 4)
     const mDoor   = matOf('hDoor',   0.35, 0.20, 0.07)
     const mGlass  = matOf('hGlass',  0.55, 0.78, 0.90)
     mGlass.alpha  = 0.35
@@ -610,32 +656,6 @@ export class World {
         .catch(err => console.warn('[House] furniture load failed:', fd.file, err))
     }
 
-    // ── Cardinal direction labels on outside of each wall ──────────────────
-    const addLabel = (
-      label: string,
-      cx: number, cy: number, cz: number,
-      ry: number,
-      planeW: number, planeH: number,
-    ) => {
-      const tex = new DynamicTexture(`lbl_tex_${label}`, { width: 512, height: 256 }, scene, false)
-      tex.drawText(label, null, null, 'bold 96px Arial', '#ffffff', '#1a3a1a', true)
-      const mat = new StandardMaterial(`lbl_mat_${label}`, scene)
-      mat.diffuseTexture  = tex
-      mat.emissiveColor   = new Color3(1, 1, 1)
-      mat.backFaceCulling = false
-      mat.disableLighting = true
-      const plane = MeshBuilder.CreatePlane(`lbl_${label}`, { width: planeW, height: planeH }, scene)
-      plane.position.set(cx, cy, cz)
-      plane.rotation.y = ry
-      plane.material   = mat
-    }
-
-    const labelY = GH / 2
-    const offset = 0.3
-    addLabel('SOUTH', HX, labelY, SZ - W / 2 - offset, Math.PI,      16, 6)
-    addLabel('NORTH', HX, labelY, NZ + W / 2 + offset, 0,            16, 6)
-    addLabel('WEST',  WX - W / 2 - offset, labelY, HZ,  Math.PI / 2, 16, 6)
-    addLabel('EAST',  EX + W / 2 + offset, labelY, HZ, -Math.PI / 2, 16, 6)
   }
 
 

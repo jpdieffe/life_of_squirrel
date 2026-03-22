@@ -44,8 +44,8 @@ export class Acorns {
     let spawned = 0, tries = 0
     while (spawned < ACORN_COUNT && tries < 1200) {
       tries++
-      const x = (Math.random() - 0.5) * 200
-      const z = (Math.random() - 0.5) * 200
+      const x = (Math.random() - 0.5) * 400
+      const z = (Math.random() - 0.5) * 400
       // Avoid tree trunk
       if (x * x + z * z < TREE_CLEAR_SQ) continue
       // Avoid house interior
