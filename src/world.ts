@@ -408,6 +408,7 @@ export class World {
     collision.push({ x: stairX, z: (SZ + stairStartZ) / 2, y: F2Y, width: stairW, depth: stairStartZ - SZ, height: SLAB_H })
 
     box('hCeiling', HX, ROOF_Y, HZ, HW, 1.05, HD, mFloor)
+    collision.push({ x: HX, z: HZ, y: ROOF_Y, width: HW, depth: HD, height: 1.05 })
 
     // ── 2nd-floor walls ─────────────────────────────────────────────────────
 
