@@ -70,6 +70,18 @@ async function startGame() {
   const human      = new Human(scene)
   const acorns     = new Acorns(scene)
   const building   = new BuildingSystem(scene)
+
+  // Extra enemies for multi-enemy waves
+  const extraHawks = [
+    new Hawk(scene, world.leaves, 90, 90),   // patrols above house
+    new Hawk(scene, world.leaves, -80, 60),   // patrols NW area
+  ]
+  const extraFoxes = [
+    new Fox(scene),
+    new Fox(scene),
+    new Fox(scene),
+  ]
+
   const debugPanel = new DebugPanel(canvas)
   debugPanel.onSwitchCharacter = () => {
     const next = player.getState().char === 'gull' ? 'squirrel' : 'gull'
@@ -141,14 +153,19 @@ async function startGame() {
   const ACTIVE_DURATION = 60   // s the enemy is active
 
   type WavePhase = 'peace' | 'alerting' | 'active'
+  type WaveType  = 'hawk' | 'fox' | 'hawks' | 'foxes'
   let wavePhase: WavePhase    = 'peace'
   let waveTimer               = PEACE_DURATION
-  let activeEnemy: 'hawk' | 'fox' | null = null
+  let activeEnemy: WaveType | null = null
 
   const alertEl = document.getElementById('enemyAlert')!
 
-  function pickEnemy(): 'hawk' | 'fox' {
-    return Math.random() < 0.5 ? 'hawk' : 'fox'
+  function pickEnemy(): WaveType {
+    const r = Math.random()
+    if (r < 0.35) return 'hawk'
+    if (r < 0.70) return 'fox'
+    if (r < 0.85) return 'hawks'
+    return 'foxes'
   }
 
   function showAlert(msg: string) {
@@ -158,11 +175,36 @@ async function startGame() {
     alertEl.classList.add('enemy-alert-show')
   }
 
+  function activateWave(type: WaveType) {
+    if (type === 'hawk')  hawk.setActive(true)
+    else if (type === 'fox')   fox.setActive(true)
+    else if (type === 'hawks') { hawk.setActive(true); extraHawks.forEach(h => h.setActive(true)) }
+    else if (type === 'foxes') { fox.setActive(true); extraFoxes.forEach(f => f.setActive(true)) }
+  }
+
   function deactivateActive() {
-    if (activeEnemy === 'hawk') hawk.setActive(false)
-    else if (activeEnemy === 'fox') fox.setActive(false)
+    if (activeEnemy === 'hawk')  hawk.setActive(false)
+    else if (activeEnemy === 'fox')   fox.setActive(false)
+    else if (activeEnemy === 'hawks') { hawk.setActive(false); extraHawks.forEach(h => h.setActive(false)) }
+    else if (activeEnemy === 'foxes') { fox.setActive(false); extraFoxes.forEach(f => f.setActive(false)) }
     activeEnemy = null
   }
+
+  // Debug: force-spawn an enemy (resets wave timer)
+  function forceSpawn(type: WaveType) {
+    if (!isHost) return
+    deactivateActive()
+    activeEnemy = type
+    wavePhase = 'active'
+    waveTimer = ACTIVE_DURATION
+    activateWave(type)
+    const alertMsg = (type === 'hawk' || type === 'hawks')
+      ? '⚠ A hawk has been spotted!'
+      : '⚠ A fox is lurking nearby!'
+    showAlert(alertMsg)
+  }
+  debugPanel.onSpawnFox  = () => forceSpawn('fox')
+  debugPanel.onSpawnHawk = () => forceSpawn('hawk')
   // ─────────────────────────────────────────────────────────────────────────────
 
   const SEND_INTERVAL = 1 / 20
@@ -180,7 +222,10 @@ async function startGame() {
 
     // ── Sneak eye update ─────────────────────────────────────────────────────
     {
-      const chased = (hawk.isActive && hawk.isDiving) || (fox.isActive && fox.isChasing)
+      const hawkChasing = hawk.isActive && hawk.isDiving
+      const foxChasing  = fox.isActive && fox.isChasing
+      const extraFoxChasing = extraFoxes.some(f => f.isActive && f.isChasing)
+      const chased = hawkChasing || foxChasing || extraFoxChasing
       const hidden = !chased && (player.isCrouching || world.isPlayerHidden(player.position))
       setEyeState(chased ? 'chased' : hidden ? 'hidden' : 'open')
     }
@@ -193,14 +238,13 @@ async function startGame() {
         wavePhase = 'alerting'
         waveTimer = ALERT_DURATION
         activeEnemy = pickEnemy()
-        showAlert(activeEnemy === 'hawk'
+        showAlert((activeEnemy === 'hawk' || activeEnemy === 'hawks')
           ? '⚠ A hawk has been spotted!'
           : '⚠ A fox is lurking nearby!')
       } else if (wavePhase === 'alerting' && waveTimer <= 0) {
         wavePhase = 'active'
         waveTimer = ACTIVE_DURATION
-        if (activeEnemy === 'hawk') hawk.setActive(true)
-        else if (activeEnemy === 'fox') fox.setActive(true)
+        activateWave(activeEnemy!)
       } else if (wavePhase === 'active' && waveTimer <= 0) {
         deactivateActive()
         wavePhase = 'peace'
@@ -220,12 +264,24 @@ async function startGame() {
 
       // Tick enemy AI
       if (wavePhase === 'active') {
-        if (activeEnemy === 'hawk') {
+        if (activeEnemy === 'hawk' || activeEnemy === 'hawks') {
           const t = pickTarget(new Vector3(hawk.posX, hawk.posY, hawk.posZ))
           hawk.update(dt, t, player.health, player.isCrouching)
-        } else if (activeEnemy === 'fox') {
+          if (activeEnemy === 'hawks') {
+            for (const eh of extraHawks) {
+              const et = pickTarget(new Vector3(eh.posX, eh.posY, eh.posZ))
+              eh.update(dt, et, player.health, player.isCrouching)
+            }
+          }
+        } else if (activeEnemy === 'fox' || activeEnemy === 'foxes') {
           const t = pickTarget(new Vector3(fox.posX, fox.posY, fox.posZ))
           fox.update(dt, t, player.health, player.isCrouching, world.buildings)
+          if (activeEnemy === 'foxes') {
+            for (const ef of extraFoxes) {
+              const et = pickTarget(new Vector3(ef.posX, ef.posY, ef.posZ))
+              ef.update(dt, et, player.health, player.isCrouching, world.buildings)
+            }
+          }
         }
       }
       // Human NPC always active
@@ -242,6 +298,8 @@ async function startGame() {
           foxStalking: fox.isStalking,
           huX: human.posX, huY: human.posY, huZ: human.posZ, huRY: human.facingAngle,
           huAnim: human.animName,
+          extraHawks: extraHawks.map(h => ({ x: h.posX, y: h.posY, z: h.posZ, ry: h.facingAngle, active: h.isActive })),
+          extraFoxes: extraFoxes.map(f => ({ x: f.posX, y: f.posY, z: f.posZ, ry: f.facingAngle, active: f.isActive, stalking: f.isStalking })),
         })
       }
     } else {
@@ -252,6 +310,16 @@ async function startGame() {
         else if (es.foxActive && !fox.isActive) showAlert('⚠ A fox is lurking nearby!')
         hawk.applyRemoteState(es.hx, es.hy, es.hz, es.hry, es.hawkActive)
         fox.applyRemoteState(es.fx, es.fy, es.fz, es.fry, es.foxActive, es.foxStalking)
+        if (es.extraHawks) {
+          es.extraHawks.forEach((eh, i) => {
+            if (i < extraHawks.length) extraHawks[i].applyRemoteState(eh.x, eh.y, eh.z, eh.ry, eh.active)
+          })
+        }
+        if (es.extraFoxes) {
+          es.extraFoxes.forEach((ef, i) => {
+            if (i < extraFoxes.length) extraFoxes[i].applyRemoteState(ef.x, ef.y, ef.z, ef.ry, ef.active, ef.stalking)
+          })
+        }
         if (es.huAnim !== undefined) {
           human.applyRemoteState(es.huX, es.huY, es.huZ, es.huRY, es.huAnim)
         }

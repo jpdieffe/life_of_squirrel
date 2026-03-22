@@ -4,6 +4,8 @@ export class DebugPanel {
   private isOpen = false
 
   onSwitchCharacter?: () => void
+  onSpawnFox?: () => void
+  onSpawnHawk?: () => void
 
   constructor(private readonly canvas: HTMLCanvasElement) {
     window.addEventListener('keydown', e => {
@@ -15,6 +17,16 @@ export class DebugPanel {
 
     document.getElementById('debugSwitchChar')!.addEventListener('click', () => {
       this.onSwitchCharacter?.()
+    })
+
+    document.getElementById('debugSpawnFox')!.addEventListener('click', () => {
+      this.onSpawnFox?.()
+      this.close()
+    })
+
+    document.getElementById('debugSpawnHawk')!.addEventListener('click', () => {
+      this.onSpawnHawk?.()
+      this.close()
     })
 
     document.getElementById('debugClose')!.addEventListener('click', () => {

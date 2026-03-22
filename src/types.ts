@@ -70,6 +70,9 @@ export interface EnemyState {
   // human NPC
   huX: number; huY: number; huZ: number; huRY: number
   huAnim: string
+  // multi-enemy extras
+  extraHawks?: { x: number; y: number; z: number; ry: number; active: boolean }[]
+  extraFoxes?: { x: number; y: number; z: number; ry: number; active: boolean; stalking: boolean }[]
 }
 
 /** Acorn position for network sync */

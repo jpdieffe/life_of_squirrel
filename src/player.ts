@@ -130,6 +130,7 @@ export class Player {
   private wallU      = new Vector3()           // horizontal "right" on the wall surface
   private wallV      = new Vector3()           // vertical "up" on the wall surface (= world up normally)
   private wallPos    = 0                       // distance along wallNormal from face origin
+  private wallJumpCooldown = 0                  // prevents re-attach right after jumping off
 
   private readonly keys: Record<string, boolean> = {}
   private readonly buildings: BuildingDef[]
@@ -373,7 +374,8 @@ export class Player {
     // ── Wall-climbing mode (squirrel only) ──────────────────────────────────
     if (this.character === 'squirrel') {
       // Try to latch if not already on wall (use input direction, not velocity)
-      if (this.wallNormal === null) this.tryAttachWall(mx, mz)
+      this.wallJumpCooldown = Math.max(0, this.wallJumpCooldown - dt)
+      if (this.wallNormal === null && this.wallJumpCooldown <= 0) this.tryAttachWall(mx, mz)
 
       if (this.wallNormal !== null) {
         const n = this.wallNormal
@@ -414,6 +416,7 @@ export class Player {
           this.velocity.z += n.z * WALL_JUMP_NORMAL
           this.velocity.y  = WALL_JUMP_UP
           this.wallNormal  = null   // detach
+          this.wallJumpCooldown = 0.35   // prevent immediate re-attach
         } else if (!spaceDown) {
           // Keep pushing into the wall so we stay attached
           this.velocity.x -= n.x * 2

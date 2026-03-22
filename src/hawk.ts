@@ -67,6 +67,8 @@ export class Hawk {
   constructor(
     private readonly scene: Scene,
     private readonly leaves: Mesh[],
+    private patrolCX = 0,
+    private patrolCZ = 0,
   ) {
     this.loadAnims()
 
@@ -96,9 +98,9 @@ export class Hawk {
       // Reset for next wave
       this.patrolAngle  = Math.random() * Math.PI * 2
       this.pos.set(
-        Math.cos(this.patrolAngle) * PATROL_RADIUS,
+        this.patrolCX + Math.cos(this.patrolAngle) * PATROL_RADIUS,
         PATROL_HEIGHT,
-        Math.sin(this.patrolAngle) * PATROL_RADIUS,
+        this.patrolCZ + Math.sin(this.patrolAngle) * PATROL_RADIUS,
       )
       this.state         = 'patrol'
       this.aggroCooldown = 0
@@ -200,9 +202,9 @@ export class Hawk {
     // Advance around the circle
     this.patrolAngle += (PATROL_SPEED / PATROL_RADIUS) * dt
     this.pos.set(
-      Math.cos(this.patrolAngle) * PATROL_RADIUS,
+      this.patrolCX + Math.cos(this.patrolAngle) * PATROL_RADIUS,
       PATROL_HEIGHT,
-      Math.sin(this.patrolAngle) * PATROL_RADIUS,
+      this.patrolCZ + Math.sin(this.patrolAngle) * PATROL_RADIUS,
     )
     // Face along the tangent: velocity = (-sin(a), 0, cos(a)), atan2(x,z) convention
     this.facingY = -this.patrolAngle
@@ -266,9 +268,9 @@ export class Hawk {
   private updateReturning(dt: number) {
     // Fly back to the patrol circle at current patrol angle
     const returnTarget = new Vector3(
-      Math.cos(this.patrolAngle) * PATROL_RADIUS,
+      this.patrolCX + Math.cos(this.patrolAngle) * PATROL_RADIUS,
       PATROL_HEIGHT,
-      Math.sin(this.patrolAngle) * PATROL_RADIUS,
+      this.patrolCZ + Math.sin(this.patrolAngle) * PATROL_RADIUS,
     )
     const diff = returnTarget.subtract(this.pos)
     const dist = diff.length()
