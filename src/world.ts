@@ -12,6 +12,7 @@
   TransformNode,
   SceneLoader,
   AbstractMesh,
+  DynamicTexture,
 } from '@babylonjs/core'
 import '@babylonjs/loaders/glTF'
 import type { BuildingDef } from './types'
@@ -593,6 +594,33 @@ export class World {
         })
         .catch(err => console.warn('[House] furniture load failed:', fd.file, err))
     }
+
+    // ── Cardinal direction labels on outside of each wall ──────────────────
+    const addLabel = (
+      label: string,
+      cx: number, cy: number, cz: number,
+      ry: number,
+      planeW: number, planeH: number,
+    ) => {
+      const tex = new DynamicTexture(`lbl_tex_${label}`, { width: 512, height: 256 }, scene, false)
+      tex.drawText(label, null, null, 'bold 96px Arial', '#ffffff', '#1a3a1a', true)
+      const mat = new StandardMaterial(`lbl_mat_${label}`, scene)
+      mat.diffuseTexture  = tex
+      mat.emissiveColor   = new Color3(1, 1, 1)
+      mat.backFaceCulling = false
+      mat.disableLighting = true
+      const plane = MeshBuilder.CreatePlane(`lbl_${label}`, { width: planeW, height: planeH }, scene)
+      plane.position.set(cx, cy, cz)
+      plane.rotation.y = ry
+      plane.material   = mat
+    }
+
+    const labelY = GH / 2
+    const offset = 0.3
+    addLabel('SOUTH', HX, labelY, SZ - W / 2 - offset, Math.PI,      16, 6)
+    addLabel('NORTH', HX, labelY, NZ + W / 2 + offset, 0,            16, 6)
+    addLabel('WEST',  WX - W / 2 - offset, labelY, HZ,  Math.PI / 2, 16, 6)
+    addLabel('EAST',  EX + W / 2 + offset, labelY, HZ, -Math.PI / 2, 16, 6)
   }
 
 
