@@ -540,16 +540,12 @@ export class Player {
       this.mesh.rotationQuaternion = null
       this.mesh.rotation.y = this.facingY
     } else if (this.wallNormal !== null) {
-      // Tilt the capsule mesh too so it lies flat against the wall
+      // Tilt the capsule mesh flat against the wall, feet into wall, head pointing up
       const n = this.wallNormal
-      const facingQuat = Quaternion.RotationAxis(Vector3.Up(), this.facingY)
-      let tiltQuat: Quaternion
-      if (n.x !== 0) {
-        tiltQuat = Quaternion.RotationAxis(new Vector3(0, 0, 1), -n.x * Math.PI / 2)
-      } else {
-        tiltQuat = Quaternion.RotationAxis(new Vector3(1, 0, 0), n.z * Math.PI / 2)
-      }
-      this.mesh.rotationQuaternion = facingQuat.multiply(tiltQuat)
+      const wallRight = this.wallU                   // horizontal axis on wall surface
+      const wallOut   = n                            // squirrel's local-Y (feet→out)
+      const wallUp    = new Vector3(0, 1, 0)         // squirrel's local-Z (faces up the wall)
+      this.mesh.rotationQuaternion = Quaternion.RotationQuaternionFromAxis(wallRight, wallOut, wallUp)
     }
 
     this.switchAnim(this.computeAnimState(moving))
@@ -568,21 +564,13 @@ export class Player {
         this.position.z,
       )
       if (onWall && n !== null) {
-        // Tilt so the squirrel's feet point into the wall.
-        // Strategy: rotate around the facing direction to tilt "up" toward the wall normal.
-        // For X-axis walls (East/West): rotate around Z by ±90°
-        // For Z-axis walls (South/North): rotate around X by ∓90°
-        // Then layer the facing-Y rotation on top.
-        const facingQuat = Quaternion.RotationAxis(Vector3.Up(), this.facingY)
-        let tiltQuat: Quaternion
-        if (n.x !== 0) {
-          // East (+X normal) tilt forward, West (-X normal) tilt backward
-          tiltQuat = Quaternion.RotationAxis(new Vector3(0, 0, 1), -n.x * Math.PI / 2)
-        } else {
-          // North (+Z normal) tilt right, South (-Z normal) tilt left
-          tiltQuat = Quaternion.RotationAxis(new Vector3(1, 0, 0), n.z * Math.PI / 2)
-        }
-        entry.root.rotationQuaternion = facingQuat.multiply(tiltQuat)
+        // Fixed orientation: feet into wall (local-Y = wallNormal), face up the wall (local-Z = world Y)
+        // wallU is the horizontal axis on the wall surface (local-X = wallU)
+        // This is independent of camera direction, so squirrel always faces upward on any wall.
+        const wallRight = this.wallU
+        const wallOut   = n
+        const wallUp    = new Vector3(0, 1, 0)
+        entry.root.rotationQuaternion = Quaternion.RotationQuaternionFromAxis(wallRight, wallOut, wallUp)
       } else {
         entry.root.rotationQuaternion = null
         entry.root.rotation.y = this.facingY
