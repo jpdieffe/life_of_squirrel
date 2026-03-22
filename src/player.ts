@@ -42,13 +42,13 @@ const WALL_JUMP_UP      = 12     // upward velocity component on wall jump
 // Wall thickness W=2.1, so outer face = wall center ± 1.05
 const HOUSE_WALL_FACES = [
   // South face — outer face points in -Z direction (normal 0,0,-1); center z=55
-  { nx: 0, nz: -1, faceZ:  53.95, minX:  48, maxX: 132, wallHeight: 22.4 },
+  { nx: 0, nz: -1, faceZ:  53.95, minX:  48, maxX: 132, wallHeight: 43.4 },
   // North face — outer face points in +Z direction (normal 0,0,+1); center z=125
-  { nx: 0, nz:  1, faceZ: 126.05, minX:  48, maxX: 132, wallHeight: 22.4 },
+  { nx: 0, nz:  1, faceZ: 126.05, minX:  48, maxX: 132, wallHeight: 43.4 },
   // West face  — outer face points in -X direction (normal -1,0,0); center x=48
-  { nx: -1, nz: 0, faceX:  46.95, minZ:  55, maxZ: 125, wallHeight: 22.4 },
+  { nx: -1, nz: 0, faceX:  46.95, minZ:  55, maxZ: 125, wallHeight: 43.4 },
   // East face  — outer face points in +X direction (normal +1,0,0); center x=132
-  { nx:  1, nz: 0, faceX: 133.05, minZ:  55, maxZ: 125, wallHeight: 22.4 },
+  { nx:  1, nz: 0, faceX: 133.05, minZ:  55, maxZ: 125, wallHeight: 43.4 },
 ] as const
 
 const SQUIRREL_ANIM_FILES: Partial<Record<AnimState, string>> = {
@@ -305,8 +305,8 @@ export class Player {
     const n = this.wallNormal
     for (const face of HOUSE_WALL_FACES) {
       if (face.nx !== n.x || face.nz !== n.z) continue
-      // Fell below ground
-      if (this.position.y < -PLAYER_RADIUS) { this.wallNormal = null; return }
+      // Slid to ground — transition to walking mode
+      if (this.position.y <= 0) { this.wallNormal = null; this.velocity.y = 0; return }
       // Climbed over the top
       if (this.position.y > face.wallHeight + 0.5) { this.wallNormal = null; return }
       // Drifted outside the face's horizontal extent
