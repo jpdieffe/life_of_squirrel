@@ -656,8 +656,14 @@ export class Player {
       // Floating platforms (baseY > 0) are one-way:
       //   - land on top when descending through the slab
       //   - bump head on underside when jumping up into the slab
+      //   - isStep platforms also support walking up from the side
       if (baseY > 0.1) {
-        if (this.velocity.y < 0 && this.position.y >= baseY - 0.05) {
+        if (b.isStep && this.position.y >= baseY - 0.1 && this.position.y <= topY) {
+          // Roof stair step — walk up from side or land from above
+          this.position.y = topY
+          if (this.velocity.y < 0) this.velocity.y = 0
+          this.onGround = true
+        } else if (this.velocity.y < 0 && this.position.y >= baseY - 0.05) {
           // Player fell onto the platform from above
           this.position.y = topY
           this.velocity.y = 0

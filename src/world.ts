@@ -469,12 +469,12 @@ export class World {
 
     const roofN = MeshBuilder.CreateBox('hRoofN', { width: roofW, height: 1.75, depth: roofSlabH + 0.35 }, scene)
     roofN.material = mRoof
-    roofN.rotation.x = -roofPitch
+    roofN.rotation.x = roofPitch
     roofN.position.set(HX, ROOF_Y + ridgeH / 2, HZ + HD / 4)
 
     const roofS = MeshBuilder.CreateBox('hRoofS', { width: roofW, height: 1.75, depth: roofSlabH + 0.35 }, scene)
     roofS.material = mRoof
-    roofS.rotation.x = roofPitch
+    roofS.rotation.x = -roofPitch
     roofS.position.set(HX, ROOF_Y + ridgeH / 2, HZ - HD / 4)
 
     const gableH = ridgeH + 0.7
@@ -485,6 +485,18 @@ export class World {
     }
     gableTri('hGableW', WX)
     gableTri('hGableE', EX)
+
+    // ── Roof slope collision (staircase approx — 7 steps per slope) ───────────
+    const ROOF_STEPS = 7
+    const rStepZ = (HD / 2) / ROOF_STEPS   // 5 m per step in Z
+    const rStepH = ridgeH / ROOF_STEPS      // 1.8 m per step in Y
+    for (let i = 0; i < ROOF_STEPS; i++) {
+      const h = (i + 1) * rStepH
+      // North slope: step from eave (NZ) inward toward ridge (HZ)
+      collision.push({ x: HX, z: NZ - (i + 0.5) * rStepZ, y: ROOF_Y, width: HW, depth: rStepZ, height: h, isStep: true })
+      // South slope: step from eave (SZ) inward toward ridge (HZ)
+      collision.push({ x: HX, z: SZ + (i + 0.5) * rStepZ, y: ROOF_Y, width: HW, depth: rStepZ, height: h, isStep: true })
+    }
 
     // ── Furniture via GLB ─────────────────────────────────────────────────────
     // Each GLB is auto-scaled to a target height and placed in the correct room.

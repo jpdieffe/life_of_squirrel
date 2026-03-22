@@ -9,6 +9,8 @@ export interface BuildingDef {
   depth: number
   /** Total height of the box (top surface = y + height) */
   height: number
+  /** If true, player can also step up onto this platform from the side (used for roof slope stairs). */
+  isStep?: boolean
 }
 
 /** A decorative structure placed on the map (tree1/tree2/house/house1) */
