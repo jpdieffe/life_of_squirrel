@@ -43,14 +43,7 @@ export class Network {
 
   host(onReady: (roomId: string) => void) {
     this.destroy()
-    this.peer = new Peer(fruitId(), {
-      // Explicitly target PeerJS cloud so the config is clear
-      host: '0.peerjs.com',
-      port: 443,
-      path: '/',
-      secure: true,
-      debug: 3,
-    })
+    this.peer = new Peer(fruitId())
 
     const timeout = setTimeout(() => {
       if (!this.peer) return
@@ -78,13 +71,7 @@ export class Network {
 
   join(roomId: string, onConnected: () => void) {
     this.destroy()
-    this.peer = new Peer({
-      host: '0.peerjs.com',
-      port: 443,
-      path: '/',
-      secure: true,
-      debug: 3,
-    })
+    this.peer = new Peer()
 
     const timeout = setTimeout(() => {
       if (!this.peer) return
