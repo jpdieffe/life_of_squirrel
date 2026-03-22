@@ -60,6 +60,9 @@ export class Network {
   /** Called when a P2P connection is fully established */
   onPeerConnected: (() => void) | null = null
 
+  /** Optional callback for progress updates during connection */
+  onStatus: ((msg: string) => void) | null = null
+
   /** Called when any error occurs (e.g. signaling server unreachable) */
   onError: ((msg: string) => void) | null = null
 
@@ -103,44 +106,76 @@ export class Network {
 
   join(roomId: string, onConnected: () => void) {
     this.destroy()
+    this._joinAttempt(roomId, onConnected, 1)
+  }
+
+  private _joinAttempt(roomId: string, onConnected: () => void, attempt: number) {
+    const MAX_ATTEMPTS = 3
+    this.onStatus?.(`Connecting to signaling server (attempt ${attempt}/${MAX_ATTEMPTS})…`)
+
+    this.peer?.destroy()
     this.peer = new Peer(PEER_OPTS)
 
     let connTimeout: ReturnType<typeof setTimeout> | null = null
+    let settled = false              // prevents double-fire
+
+    const settle = () => {
+      settled = true
+      if (connTimeout) { clearTimeout(connTimeout); connTimeout = null }
+    }
+
+    const retry = () => {
+      if (settled) return
+      settle()
+      if (attempt < MAX_ATTEMPTS) {
+        this.onStatus?.(`Retrying (${attempt + 1}/${MAX_ATTEMPTS})…`)
+        setTimeout(() => this._joinAttempt(roomId, onConnected, attempt + 1), 1500)
+      } else {
+        this.onError?.('Could not connect after multiple attempts. Make sure the host is still waiting and the room code is correct.')
+      }
+    }
 
     const timeout = setTimeout(() => {
-      if (!this.peer) return
-      this.onError?.('Could not reach PeerJS server. Check your internet connection and try again.')
+      if (!this.peer || settled) return
+      retry()
     }, 12000)
 
     this.peer.on('open', () => {
       clearTimeout(timeout)
+      if (settled) return
+      this.onStatus?.('Signaling OK — connecting to host…')
+
       const conn = this.peer!.connect(roomId, { reliable: true })
       this.conn = conn
       this.wireConn(conn)
 
       connTimeout = setTimeout(() => {
-        this.onError?.('Could not connect to that room code. Make sure the host is waiting and the code is correct.')
-      }, 15000)
+        if (settled) return
+        retry()
+      }, 12000)
 
       conn.on('open', () => {
-        if (connTimeout) clearTimeout(connTimeout)
+        if (settled) return
+        settle()
+        this.onStatus?.('Connected!')
         onConnected()
         this.onPeerConnected?.()
       })
       conn.on('error', err => {
-        if (connTimeout) clearTimeout(connTimeout)
+        if (settled) return
         console.error('[Network] conn error', err)
-        this.onError?.(`Connection error: ${(err as Error).message ?? err}`)
+        retry()
       })
     })
     this.peer.on('error', (err: any) => {
       clearTimeout(timeout)
-      if (connTimeout) clearTimeout(connTimeout)
+      if (settled) return
       console.error('[Network] join error', err)
       if (err.type === 'peer-unavailable') {
-        this.onError?.('Room not found — make sure the host is still on the lobby screen and the code is correct.')
+        settle()
+        this.onError?.('Room not found — the host may have left or the code is wrong.')
       } else {
-        this.onError?.(`Connection error: ${(err as Error).message ?? err}`)
+        retry()
       }
     })
   }

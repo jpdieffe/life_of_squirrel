@@ -280,7 +280,8 @@ document.getElementById('joinBtn')!.addEventListener('click', () => {
   const code = roomInput.value.trim()
   if (!code) { setStatus('Paste a room code first.'); return }
   statusEl.style.color = ''
-  setStatus('Connecting')
+  setStatus('Connecting…')
+  network.onStatus = msg => setStatus(msg)
   network.onError = networkError
   network.onPeerConnected = () => showConnected()   // badge only; game started by onConnected
   network.join(code, () => { setStatus('Connected!'); showConnected(); setTimeout(startGame, 700) })
