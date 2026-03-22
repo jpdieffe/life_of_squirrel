@@ -434,7 +434,7 @@ export class Player {
           }
         }
 
-        this.updateMeshAndCamera(isSneaking, isSprinting, wallMoving || moving, true, wallFacingV)
+        this.updateMeshAndCamera(dt, isSneaking, isSprinting, wallMoving || moving, true, wallFacingV)
         return
       }
     }
@@ -495,7 +495,7 @@ export class Player {
 
     if (moving) this.facingY = Math.atan2(fwdX, fwdZ)
 
-    this.updateMeshAndCamera(isSneaking, isSprinting, moving, false, 0)
+    this.updateMeshAndCamera(dt, isSneaking, isSprinting, moving, false, 0)
   }
 
   /** Snap position to lie exactly on the wall surface. */
@@ -519,6 +519,7 @@ export class Player {
 
   /** Shared logic to position mesh, camera, animations each frame. */
   private updateMeshAndCamera(
+    dt: number,
     isSneaking: boolean, isSprinting: boolean, moving: boolean,
     onWall: boolean, wallVertDir: number,
   ) {
