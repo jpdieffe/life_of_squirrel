@@ -78,10 +78,19 @@ export class Network {
       clearTimeout(timeout)
       onReady(id)
     })
+    // Keep host registered on the signaling server — auto-reconnect if the
+    // idle WebSocket drops (common after 30–60 s of waiting).
+    this.peer.on('disconnected', () => {
+      if (this.peer && !this.peer.destroyed) {
+        console.log('[Network] host signaling dropped, reconnecting…')
+        this.peer.reconnect()
+      }
+    })
     this.peer.on('connection', conn => {
       this.conn = conn
       this.wireConn(conn)
       conn.on('open', () => { this.onPeerConnected?.() })
+      conn.on('error', err => console.error('[Network] host conn error', err))
     })
     this.peer.on('error', err => {
       clearTimeout(timeout)
@@ -96,6 +105,8 @@ export class Network {
     this.destroy()
     this.peer = new Peer(PEER_OPTS)
 
+    let connTimeout: ReturnType<typeof setTimeout> | null = null
+
     const timeout = setTimeout(() => {
       if (!this.peer) return
       this.onError?.('Could not reach PeerJS server. Check your internet connection and try again.')
@@ -107,20 +118,30 @@ export class Network {
       this.conn = conn
       this.wireConn(conn)
 
-      const connTimeout = setTimeout(() => {
+      connTimeout = setTimeout(() => {
         this.onError?.('Could not connect to that room code. Make sure the host is waiting and the code is correct.')
       }, 15000)
 
       conn.on('open', () => {
-        clearTimeout(connTimeout)
+        if (connTimeout) clearTimeout(connTimeout)
         onConnected()
         this.onPeerConnected?.()
       })
+      conn.on('error', err => {
+        if (connTimeout) clearTimeout(connTimeout)
+        console.error('[Network] conn error', err)
+        this.onError?.(`Connection error: ${(err as Error).message ?? err}`)
+      })
     })
-    this.peer.on('error', err => {
+    this.peer.on('error', (err: any) => {
       clearTimeout(timeout)
+      if (connTimeout) clearTimeout(connTimeout)
       console.error('[Network] join error', err)
-      this.onError?.(`Connection error: ${(err as Error).message ?? err}`)
+      if (err.type === 'peer-unavailable') {
+        this.onError?.('Room not found — make sure the host is still on the lobby screen and the code is correct.')
+      } else {
+        this.onError?.(`Connection error: ${(err as Error).message ?? err}`)
+      }
     })
   }
 
@@ -140,7 +161,7 @@ export class Network {
       console.log('[Network] connection closed')
       this.conn = null
     })
-    conn.on('error', err => console.error('[Network] conn error', err))
+    // Note: 'error' is wired per flow (host/join) so connTimeout can be cleared
   }
 
   // ── Public API ─────────────────────────────────────────────────────────────
