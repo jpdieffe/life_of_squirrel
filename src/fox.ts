@@ -13,10 +13,10 @@ import type { BuildingDef } from './types'
 
 // ── Tuning ────────────────────────────────────────────────────────────────────
 const FOX_SCALE          = 2.5
-const WANDER_SPEED       = 11      // m/s while running to a random waypoint
-const STALK_SPEED        = 4.5     // m/s while sneaking toward player
-const CHASE_SPEED        = 20      // m/s while chasing a fleeing player
-const POUNCE_SPEED       = 22      // m/s horizontal during leap
+const WANDER_SPEED       = 13.2    // m/s while running to a random waypoint
+const STALK_SPEED        = 5.4     // m/s while sneaking toward player
+const CHASE_SPEED        = 24      // m/s while chasing a fleeing player
+const POUNCE_SPEED       = 33      // m/s horizontal during leap
 const POUNCE_HEIGHT      = 5.0     // peak Y height during pounce arc
 const AGGRO_RADIUS       = 42      // m: spots a player within this range
 const DEAGGRO_RADIUS     = 52      // m: gives up stalk/chase if player gets this far

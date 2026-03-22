@@ -313,6 +313,53 @@ export class World {
     stoneWall('stoneW1', -100, 50, 40, 2, 8)
     stoneWall('stoneW2', 160, -50, 2, 30, 8)
     stoneWall('stoneW3', 50, -80, 25, 2, 8)
+
+    // ── Small decorative trees scattered around the map ──────────────────────
+    const miniTrunkMat = texMat('miniTrunkMat', './assets/textures/bark_col.jpg', './assets/textures/bark_nrm.jpg', scene, 2, 3)
+    const miniLeafMatA = new StandardMaterial('miniLeafA', scene)
+    miniLeafMatA.diffuseColor = C_LEAF_A
+    miniLeafMatA.backFaceCulling = false
+    const miniLeafMatB = new StandardMaterial('miniLeafB', scene)
+    miniLeafMatB.diffuseColor = C_LEAF_B
+    miniLeafMatB.backFaceCulling = false
+
+    const miniTreePositions: [number, number, number, number][] = [
+      // [x, z, height, canopyDiameter]
+      [-60,  -40, 12, 8],
+      [-90,  -20, 10, 7],
+      [-110,  80, 14, 9],
+      [-140, -60, 11, 7],
+      [-50,  130, 13, 8],
+      [ 70, -120, 10, 6],
+      [ 120, -80, 15, 9],
+      [ 160,  30, 11, 7],
+      [ 140, 100, 12, 8],
+      [-30, -130, 10, 7],
+      [ 100, 140, 13, 8],
+      [-170,  40, 11, 7],
+      [ 50,  160, 14, 9],
+      [-80, -140, 10, 6],
+      [ 180,  80, 12, 7],
+    ]
+    for (let ti = 0; ti < miniTreePositions.length; ti++) {
+      const [tx, tz, th, cd] = miniTreePositions[ti]
+      // Trunk
+      const mt = MeshBuilder.CreateCylinder(`mtTrunk${ti}`, {
+        diameterBottom: 0.8, diameterTop: 0.3, height: th, tessellation: 8,
+      }, scene)
+      mt.position.set(tx, th / 2, tz)
+      mt.material = miniTrunkMat
+      collision.push({ x: tx, z: tz, width: 1.2, depth: 1.2, height: th })
+      // Canopy — 2 overlapping spheres
+      const c1 = MeshBuilder.CreateSphere(`mtLeaf${ti}a`, { diameter: cd, segments: 6 }, scene)
+      c1.position.set(tx, th - 1, tz)
+      c1.scaling.y = 0.6
+      c1.material = miniLeafMatA
+      const c2 = MeshBuilder.CreateSphere(`mtLeaf${ti}b`, { diameter: cd * 0.75, segments: 6 }, scene)
+      c2.position.set(tx + cd * 0.15, th + 0.5, tz - cd * 0.1)
+      c2.scaling.y = 0.55
+      c2.material = miniLeafMatB
+    }
   }
 
   private _buildHouse(scene: Scene, collision: BuildingDef[]) {
