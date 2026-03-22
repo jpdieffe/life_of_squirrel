@@ -39,15 +39,16 @@ const WALL_JUMP_UP      = 12     // upward velocity component on wall jump
 
 // Outer house wall faces — must match _buildHouse constants in world.ts
 // HX=90, HZ=90, HW=84(WX=48,EX=132), HD=70(SZ=55,NZ=125), GH=22.4
+// Wall thickness W=2.1, so outer face = wall center ± 1.05
 const HOUSE_WALL_FACES = [
-  // South face — outer face points in -Z direction (normal 0,0,-1)
-  { nx: 0, nz: -1, faceZ:  55, minX:  48, maxX: 132, wallHeight: 22.4 },
-  // North face — outer face points in +Z direction (normal 0,0,+1)
-  { nx: 0, nz:  1, faceZ: 125, minX:  48, maxX: 132, wallHeight: 22.4 },
-  // West face  — outer face points in -X direction (normal -1,0,0)
-  { nx: -1, nz: 0, faceX:  48, minZ:  55, maxZ: 125, wallHeight: 22.4 },
-  // East face  — outer face points in +X direction (normal +1,0,0)
-  { nx:  1, nz: 0, faceX: 132, minZ:  55, maxZ: 125, wallHeight: 22.4 },
+  // South face — outer face points in -Z direction (normal 0,0,-1); center z=55
+  { nx: 0, nz: -1, faceZ:  53.95, minX:  48, maxX: 132, wallHeight: 22.4 },
+  // North face — outer face points in +Z direction (normal 0,0,+1); center z=125
+  { nx: 0, nz:  1, faceZ: 126.05, minX:  48, maxX: 132, wallHeight: 22.4 },
+  // West face  — outer face points in -X direction (normal -1,0,0); center x=48
+  { nx: -1, nz: 0, faceX:  46.95, minZ:  55, maxZ: 125, wallHeight: 22.4 },
+  // East face  — outer face points in +X direction (normal +1,0,0); center x=132
+  { nx:  1, nz: 0, faceX: 133.05, minZ:  55, maxZ: 125, wallHeight: 22.4 },
 ] as const
 
 const SQUIRREL_ANIM_FILES: Partial<Record<AnimState, string>> = {
@@ -248,8 +249,13 @@ export class Player {
     return 'idle'
   }
 
-  /** Try to attach to a house wall face when the squirrel moves close enough. */
-  private tryAttachWall(): boolean {
+  /**
+   * Try to attach to a house wall face.
+   * mx/mz are the normalised input movement direction this frame.
+   * We check INPUT direction (not velocity) because collision resolution already
+   * zeroes velocity before this is called, so velocity would always be 0.
+   */
+  private tryAttachWall(mx: number, mz: number): boolean {
     if (this.character !== 'squirrel') return false
     if (this.wallNormal !== null) return true  // already attached
 
@@ -260,18 +266,18 @@ export class Player {
         dist = (this.position.x - face.faceX) * face.nx
         if (dist < 0 || dist > WALL_ATTACH_DIST) continue
         if (this.position.z < face.minZ || this.position.z > face.maxZ) continue
-        if (this.position.y < 0 || this.position.y > face.wallHeight) continue
+        if (this.position.y < -1 || this.position.y > face.wallHeight) continue
       } else {
         // Z-aligned face
         dist = (this.position.z - face.faceZ) * face.nz
         if (dist < 0 || dist > WALL_ATTACH_DIST) continue
         if (this.position.x < face.minX || this.position.x > face.maxX) continue
-        if (this.position.y < 0 || this.position.y > face.wallHeight) continue
+        if (this.position.y < -1 || this.position.y > face.wallHeight) continue
       }
 
-      // Player must be moving toward the wall to latch (prevents accidental attach from inside)
-      const movingIntoWall = (this.velocity.x * face.nx + this.velocity.z * face.nz) < -0.5
-      if (!movingIntoWall) continue
+      // Input must be pressing toward the wall (not away or perpendicular)
+      const pressingIntoWall = (mx * face.nx + mz * face.nz) < -0.2
+      if (!pressingIntoWall) continue
 
       this.wallNormal = new Vector3(face.nx, 0, face.nz)
       // wallU = right direction on the wall surface
@@ -357,8 +363,8 @@ export class Player {
 
     // ── Wall-climbing mode (squirrel only) ──────────────────────────────────
     if (this.character === 'squirrel') {
-      // Try to latch if not already on wall
-      if (this.wallNormal === null) this.tryAttachWall()
+      // Try to latch if not already on wall (use input direction, not velocity)
+      if (this.wallNormal === null) this.tryAttachWall(mx, mz)
 
       if (this.wallNormal !== null) {
         const n = this.wallNormal
