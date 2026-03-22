@@ -122,6 +122,7 @@ export class Player {
   private flapThrustTimer = 0   // counts down after each flap; >0 = thrust speed
   private stamina           = 1.0
   private staminaRegenDelay = 0
+  private staminaExhausted  = false
   private desiredRadius     = 14   // scroll zoom target; actual radius shrinks when looking up
 
   // Wall-climbing state (squirrel only)
@@ -344,15 +345,23 @@ export class Player {
 
     // Sprint: hold R while squirrel and moving (not sneaking), burns stamina
     const isSprinting = this.character === 'squirrel' && !isSneaking
-      && this.keys['KeyR'] && this.stamina > 0 && moving
+      && this.keys['KeyR'] && this.stamina > 0 && !this.staminaExhausted && moving
     if (isSprinting) {
       this.stamina = Math.max(0, this.stamina - STAMINA_DRAIN_RATE * dt)
-      this.staminaRegenDelay = SPRINT_REGEN_DELAY
-    } else {
+      if (this.stamina <= 0) {
+        this.staminaExhausted = true
+        this.staminaRegenDelay = SPRINT_REGEN_DELAY
+      }
+    } else if (this.staminaExhausted) {
+      // Fully depleted: wait then refill all at once
       this.staminaRegenDelay = Math.max(0, this.staminaRegenDelay - dt)
       if (this.staminaRegenDelay <= 0) {
-        this.stamina = Math.min(1.0, this.stamina + STAMINA_REGEN_RATE * dt)
+        this.stamina = 1.0
+        this.staminaExhausted = false
       }
+    } else {
+      // Stopped early: recharge immediately
+      this.stamina = Math.min(1.0, this.stamina + STAMINA_REGEN_RATE * dt)
     }
     const staminaFill = document.getElementById('staminaFill') as HTMLElement | null
     const staminaBar  = document.getElementById('staminaBar')  as HTMLElement | null
@@ -617,6 +626,7 @@ export class Player {
     this.health.reset()
     this.stamina           = 1.0
     this.staminaRegenDelay = 0
+    this.staminaExhausted  = false
     this.wallNormal        = null
   }
 
