@@ -55,6 +55,14 @@ export class Network {
       console.log('[Network] HOST registered as:', id)
       onReady(id)
     })
+    // Auto-reconnect if the signaling WebSocket drops (e.g. main thread
+    // blocked during heavy scene init)
+    this.peer.on('disconnected', () => {
+      if (this.peer && !this.peer.destroyed) {
+        console.log('[Network] host signaling dropped, reconnecting…')
+        this.peer.reconnect()
+      }
+    })
     this.peer.on('connection', conn => {
       this.conn = conn
       this.wireConn(conn)
@@ -139,6 +147,14 @@ export class Network {
 
   isConnected(): boolean {
     return this.conn?.open ?? false
+  }
+
+  /** Force-reconnect to signaling server (call after heavy main-thread work) */
+  ensureSignaling() {
+    if (this.peer && !this.peer.destroyed && this.peer.disconnected) {
+      console.log('[Network] forcing signaling reconnect')
+      this.peer.reconnect()
+    }
   }
 
   destroy() {

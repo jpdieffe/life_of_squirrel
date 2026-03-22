@@ -258,7 +258,11 @@ async function startGame() {
 // Host button
 const hostBtn = document.getElementById('hostBtn')! as HTMLButtonElement
 hostBtn.addEventListener('click', () => {
-  if (hostBtn.dataset.ready === '1') { isHost = true; startGame(); return }
+  if (hostBtn.dataset.ready === '1') {
+    isHost = true
+    startGame().then(() => network.ensureSignaling())
+    return
+  }
 
   statusEl.style.color = ''
   setStatus('Connecting to signaling server')
