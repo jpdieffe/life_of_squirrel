@@ -260,23 +260,30 @@ const hostBtn = document.getElementById('hostBtn')! as HTMLButtonElement
 hostBtn.addEventListener('click', () => {
   if (hostBtn.dataset.ready === '1') {
     isHost = true
-    startGame().then(() => network.ensureSignaling())
+    hostBtn.disabled = true
+    setStatus('Loading game…')
+    const code = hostBtn.dataset.roomCode!
+
+    // Start game FIRST (heavy scene creation), THEN register with PeerJS
+    // so the signaling WebSocket is fresh and won't drop.
+    startGame().then(() => {
+      network.onError = msg => networkError(msg)
+      network.onPeerConnected = () => showConnected()
+      network.host(_id => {
+        console.log('[Network] host registered, ready for joiners')
+      }, code)
+    })
     return
   }
 
+  // First click — generate room code locally (no server round-trip)
   statusEl.style.color = ''
-  setStatus('Connecting to signaling server')
-  roomCodeEl.textContent = ''
-  hostBtn.disabled = true
-  network.onError = msg => { networkError(msg); hostBtn.disabled = false }
-  network.onPeerConnected = () => showConnected()
-  network.host(id => {
-    roomCodeEl.textContent = id
-    setStatus('Share that code with a friend, then click Start Playing when ready.')
-    hostBtn.textContent = 'Start Playing'
-    hostBtn.disabled = false
-    hostBtn.dataset.ready = '1'
-  })
+  const code = Network.generateRoomCode()
+  roomCodeEl.textContent = code
+  setStatus('Share that code with a friend, then click Start Playing when ready.')
+  hostBtn.textContent = 'Start Playing'
+  hostBtn.dataset.ready = '1'
+  hostBtn.dataset.roomCode = code
 })
 
 // Join button
@@ -286,6 +293,7 @@ document.getElementById('joinBtn')!.addEventListener('click', () => {
   statusEl.style.color = ''
   setStatus('Connecting…')
   network.onError = networkError
+  network.onStatus = msg => setStatus(msg)
   network.onPeerConnected = () => showConnected()   // badge only; game started by onConnected
   network.join(code, () => { setStatus('Connected!'); showConnected(); setTimeout(startGame, 700) })
 })

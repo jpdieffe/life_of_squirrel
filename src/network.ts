@@ -39,11 +39,16 @@ export class Network {
   /** Called when any error occurs (e.g. signaling server unreachable) */
   onError: ((msg: string) => void) | null = null
 
+  /** Called with progress messages during connection */
+  onStatus: ((msg: string) => void) | null = null
+
+  static generateRoomCode(): string { return fruitId() }
+
   // ── Host side ─────────────────────────────────────────────────────────────
 
-  host(onReady: (roomId: string) => void) {
+  host(onReady: (roomId: string) => void, roomCode?: string) {
     this.destroy()
-    this.peer = new Peer(fruitId())
+    this.peer = new Peer(roomCode ?? fruitId())
 
     const timeout = setTimeout(() => {
       if (!this.peer) return
@@ -80,32 +85,62 @@ export class Network {
   join(roomId: string, onConnected: () => void) {
     this.destroy()
     this.peer = new Peer()
+    let attempts = 0
+    const MAX_ATTEMPTS = 5
+    let connected = false
 
     const timeout = setTimeout(() => {
       if (!this.peer) return
       this.onError?.('Could not reach PeerJS server. Check your internet connection and try again.')
     }, 12000)
 
-    this.peer.on('open', (id) => {
-      clearTimeout(timeout)
-      console.log('[Network] JOINER registered as:', id, '— connecting to room:', roomId)
+    const tryConnect = () => {
+      if (connected) return
+      attempts++
+      console.log(`[Network] connection attempt ${attempts}/${MAX_ATTEMPTS} to ${roomId}`)
+      if (attempts > 1) this.onStatus?.(`Connecting to host… (attempt ${attempts}/${MAX_ATTEMPTS})`)
+
       const conn = this.peer!.connect(roomId, { reliable: true })
       this.conn = conn
       this.wireConn(conn)
 
       const connTimeout = setTimeout(() => {
-        this.onError?.('Could not connect to that room code. Make sure the host is waiting and the code is correct.')
-      }, 15000)
+        if (connected) return
+        console.log('[Network] connection attempt timed out')
+        if (attempts < MAX_ATTEMPTS) {
+          this.onStatus?.('Connection timed out, retrying…')
+          tryConnect()
+        } else {
+          this.onError?.('Could not connect. Make sure the host has started the game and the code is correct.')
+        }
+      }, 8000)
 
       conn.on('open', () => {
+        connected = true
         clearTimeout(connTimeout)
         onConnected()
         this.onPeerConnected?.()
       })
+    }
+
+    this.peer.on('open', (id) => {
+      clearTimeout(timeout)
+      console.log('[Network] JOINER registered as:', id, '— connecting to room:', roomId)
+      tryConnect()
     })
     this.peer.on('error', err => {
       clearTimeout(timeout)
-      console.error('[Network] join error', err)
+      const errType = (err as any).type ?? ''
+      console.error('[Network] join error', errType, err)
+
+      // Host might not be registered yet — retry on peer-unavailable
+      if (errType === 'peer-unavailable' && !connected && attempts < MAX_ATTEMPTS) {
+        console.log('[Network] host not found yet, retrying in 3 s…')
+        this.onStatus?.('Waiting for host to be ready…')
+        setTimeout(tryConnect, 3000)
+        return
+      }
+
       this.onError?.(`Connection error: ${(err as Error).message ?? err}`)
     })
   }
