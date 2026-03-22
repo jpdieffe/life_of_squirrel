@@ -484,7 +484,9 @@ export class World {
       g.position.set(gx, ROOF_Y + gableH / 2 - 0.35, HZ)
     }
     gableTri('hGableW', WX)
+    collision.push({ x: WX, z: HZ, y: ROOF_Y - 0.35, width: 1.75, depth: HD, height: gableH })
     gableTri('hGableE', EX)
+    collision.push({ x: EX, z: HZ, y: ROOF_Y - 0.35, width: 1.75, depth: HD, height: gableH })
 
     // ── Roof slope collision (staircase approx — 7 steps per slope) ───────────
     const ROOF_STEPS = 7
