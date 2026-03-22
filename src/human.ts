@@ -22,7 +22,7 @@ const ANNOY_RATE        = 1.8     // annoyance/s while player is within ANNOY_RA
 const CALM_RATE         = 0.4     // annoyance/s recovered when player is far
 const ANNOYED_THRESH    = 3.0     // annoyance to trigger Hit_Knockback reaction
 const ATTACK_THRESH     = 6.0     // annoyance to trigger jab attack sequence
-const ATTACK_DURATION   = 6.0     // s of jazz-fists before calming down
+const ATTACK_DURATION   = 18.0    // s of jazz-fists before calming down
 const HIT_RADIUS        = 2.5     // m: jabs can connect within this distance
 const HIT_DAMAGE        = 12      // damage per hit
 const HIT_INTERVAL      = 0.75    // s between jabs
@@ -339,6 +339,8 @@ export class Human {
   }
 
   private updateAnnoyed(dt: number, playerPos: Vector3) {
+    // Chase the player while annoyed
+    this.moveToward(dt, playerPos, JOG_SPEED)
     this.facePlayer(playerPos)
     this.stateTimer -= dt
     if (this.stateTimer > 0) return
@@ -347,6 +349,8 @@ export class Human {
   }
 
   private updateAttacking(dt: number, playerPos: Vector3, health: HealthSystem) {
+    // Chase the player while attacking
+    this.moveToward(dt, playerPos, JOG_SPEED)
     this.facePlayer(playerPos)
     this.attackTimer -= dt
     this.hitTimer    -= dt
@@ -391,8 +395,8 @@ export class Human {
       this.playAnim('Fighting Left Jab', false, true)
     } else {
       this.state      = 'annoyed'
-      this.stateTimer = 1.8
-      this.playAnim('Hit_Knockback', false)
+      this.stateTimer = 15 + Math.random() * 5
+      this.playAnim('Jog_Fwd_Loop', true)
     }
   }
 

@@ -93,4 +93,14 @@ export class BuildingSystem {
 
     return { x: px, z: pz, y: py, width: BLOCK_SIZE, depth: BLOCK_SIZE, height: BLOCK_SIZE }
   }
+
+  /** Spawn a visible block from received network data (no acorn cost). */
+  spawnRemoteBlock(x: number, y: number, z: number, w: number, h: number, d: number): BuildingDef {
+    const mesh = MeshBuilder.CreateBox(`remote_${Date.now()}`, {
+      width: w, height: h, depth: d,
+    }, this.scene)
+    mesh.material = this.placedMat
+    mesh.position.set(x, y + h / 2, z)
+    return { x, z, y, width: w, depth: d, height: h }
+  }
 }

@@ -1,4 +1,4 @@
-﻿import { Engine, Scene } from '@babylonjs/core'
+﻿import { Engine, Scene, Vector3 } from '@babylonjs/core'
 import { World } from './world'
 import { Player } from './player'
 import { RemotePlayer } from './remote'
@@ -124,7 +124,10 @@ async function startGame() {
     if (e.button !== 0 || document.pointerLockElement !== canvas) return
     if (!building.isActive) return
     const def = building.place(() => acorns.consume())
-    if (def) world.buildings.push(def)
+    if (def) {
+      world.buildings.push(def)
+      network.sendBlock({ x: def.x, y: def.y ?? 0, z: def.z, w: def.width, h: def.height, d: def.depth })
+    }
   })
 
   player.health.onDeath = () => {
@@ -204,13 +207,30 @@ async function startGame() {
         waveTimer = PEACE_DURATION
       }
 
+      // Pick closest player for enemy targeting
+      const remotePos = network.lastRemoteState
+        ? new Vector3(network.lastRemoteState.x, network.lastRemoteState.y, network.lastRemoteState.z)
+        : null
+      const pickTarget = (enemyPos: Vector3) => {
+        if (!remotePos) return player.position
+        const dLocal  = Vector3.Distance(enemyPos, player.position)
+        const dRemote = Vector3.Distance(enemyPos, remotePos)
+        return dRemote < dLocal ? remotePos : player.position
+      }
+
       // Tick enemy AI
       if (wavePhase === 'active') {
-        if (activeEnemy === 'hawk') hawk.update(dt, player.position, player.health, player.isCrouching)
-        else if (activeEnemy === 'fox') fox.update(dt, player.position, player.health, player.isCrouching, world.buildings)
+        if (activeEnemy === 'hawk') {
+          const t = pickTarget(new Vector3(hawk.posX, hawk.posY, hawk.posZ))
+          hawk.update(dt, t, player.health, player.isCrouching)
+        } else if (activeEnemy === 'fox') {
+          const t = pickTarget(new Vector3(fox.posX, fox.posY, fox.posZ))
+          fox.update(dt, t, player.health, player.isCrouching, world.buildings)
+        }
       }
       // Human NPC always active
-      human.update(dt, player.position, player.onGround, player.isGull, player.health)
+      const hTarget = pickTarget(new Vector3(human.posX, human.posY, human.posZ))
+      human.update(dt, hTarget, player.onGround, player.isGull, player.health)
 
       // Broadcast enemy positions to joiner
       if (network.isConnected()) {
@@ -258,6 +278,13 @@ async function startGame() {
     if (!isHost && !acornsSynced && network.lastAcornPositions) {
       acorns.applyPositions(network.lastAcornPositions)
       acornsSynced = true
+    }
+
+    // ── Block sync (both directions) ─────────────────────────────────────────
+    while (network.pendingBlocks.length > 0) {
+      const b = network.pendingBlocks.shift()!
+      const def = building.spawnRemoteBlock(b.x, b.y, b.z, b.w, b.h, b.d)
+      world.buildings.push(def)
     }
 
     scene.render()

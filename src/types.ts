@@ -75,8 +75,12 @@ export interface EnemyState {
 /** Acorn position for network sync */
 export interface AcornPos { x: number; z: number }
 
+/** Block placement for network sync */
+export interface BlockPlace { x: number; y: number; z: number; w: number; h: number; d: number }
+
 /** Network message envelope */
 export type NetMessage =
   | { type: 'state'; state: PlayerState }
   | { type: 'enemy'; data: EnemyState }
   | { type: 'acorns'; positions: AcornPos[] }
+  | { type: 'block'; block: BlockPlace }
